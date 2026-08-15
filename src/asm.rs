@@ -1,6 +1,6 @@
 //! A SpinASM assembler: turns FV-1 assembly source text into a [`Program`].
 //!
-//! This implements the subset of the Spin ASM users manual syntax needed to
+//! This implements the subset of the SpinASM user manual syntax needed to
 //! write real FV-1 programs by hand: mnemonics and pseudo-ops, `EQU` and
 //! `MEM` directives, labels (with forward references for `SKP`), numeric
 //! literals in decimal/hex/binary/real form (including exponent notation),
@@ -195,7 +195,7 @@ pub fn assemble(source: &str) -> Result<Program, AsmError> {
                     format!("MEM allocation overflows delay memory: {end} exceeds {DELAY_LEN}"),
                 ));
             }
-            // SPINAsm reserves `size + 1` locations per block — `name` is the
+            // SpinASM reserves `size + 1` locations per block — `name` is the
             // first and `name#` (= start + size) the last, with the next
             // block starting one word later. Spin's factory programs were
             // assembled with that layout, so tap spacings depend on it.
@@ -1201,7 +1201,7 @@ fn parse_instruction(
             need(2)?;
             Ok(Instruction::Log {
                 c: coeff_s1_14(&groups[0], symtab).map_err(&err)?,
-                // SPINAsm manual, LOG: D is entered as Real(S4.6), range
+                // SpinASM user manual, LOG: D is entered as Real(S4.6), range
                 // -16 to +15.999998. (The knowledge-base cheat sheet lists
                 // "-1 to +0.999023" for LOG's K2 — a copy of EXP's row;
                 // the tool manual wins here.)

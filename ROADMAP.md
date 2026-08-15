@@ -24,17 +24,11 @@ capabilities and test coverage are documented in the README.
   documents the compressed format's existence but not its
   mantissa/exponent split; ours is a documented model).
 - Decide on pot quantization: independent implementations model the pot
-  inputs as 10-bit values (floor to 1024 steps, matching the SPINAsm
-  manual's "approximately a 10-bit resolution"); we keep full S.23 pot
+  inputs as 10-bit values (floor to 1024 steps, matching the SpinASM
+  user manual's "approximately a 10-bit resolution"); we keep full S.23 pot
   resolution for now, which also suits smooth virtual knobs.
 
-## 3. Assembler policy
-
-When a third-party program surfaces a construct the assembler rejects,
-close the gap together with that program as a regression test, as was
-done for `-kap`, `1/64` and `sym < 8`.
-
-## 4. Hosting
+## 3. Hosting
 
 - VCV Rack module — separate repository; consumes this crate's C API
   (`ffi` feature, `include/spinfv1.h`) unchanged. Uses boundary

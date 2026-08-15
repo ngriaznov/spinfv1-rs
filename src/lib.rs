@@ -44,8 +44,8 @@
 //!
 //! * All arithmetic is integer fixed point matching the hardware formats;
 //!   multiplications truncate and additions saturate at the 24-bit rails.
-//! * LFO phase/scaling behavior matches what has been observed and validated
-//!   on real chips: SIN LFOs are magic-circle oscillators stepping
+//! * LFO phase/scaling follows Spin's own documentation (AN-0001, the
+//!   SpinASM user manual): SIN LFOs are magic-circle oscillators stepping
 //!   `rate / 2^17` radians per sample; RMP LFOs count a 22-bit phase down by
 //!   `rate / 16` per sample.
 //! * `WLDS`/`WLDR` write the LFO rate/range registers without resetting the

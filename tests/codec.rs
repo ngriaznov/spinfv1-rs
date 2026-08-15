@@ -6,7 +6,7 @@ use spinfv1::{ChoFlags, Instruction, LfoSel, RampAmp, SkpCond, reg};
 
 #[test]
 fn golden_words() {
-    // Hand-assembled against the Spin ASM users manual.
+    // Hand-assembled against the SpinASM user manual.
     let cases: &[(Instruction, u32)] = &[
         // RDAX ADCL, 1.0 => C=0x4000<<16 | 0x14<<5 | 0x04
         (

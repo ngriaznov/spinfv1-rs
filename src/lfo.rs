@@ -6,9 +6,10 @@
 //! pass, which is why the `REG` latch flag is a no-op here.
 //!
 //! The oscillator models implement the hardware behavior described in Spin's
-//! datasheet and application notes (phase step formulas, amplitude scaling,
-//! interpolation fraction widths), cross-checked against behavior others have
-//! validated on real chips. The implementation itself is original.
+//! datasheet, AN-0001 and the SpinASM user manual (phase step formulas,
+//! amplitude scaling, interpolation fraction widths), cross-validated
+//! against independent implementations. The implementation itself is
+//! original.
 
 use crate::fixed::{ACC_MAX, mul_s23};
 use crate::instruction::ChoFlags;
@@ -69,7 +70,7 @@ impl SinLfo {
     /// amplitude formula `Ka = N * 32767 / 16385` for a delay of N samples
     /// (i.e. `Ka ≈ 2N`, excursion `±(N-1)/2 ≈ ±Ka/4`) and its worked chorus
     /// example pairs `Ka = 16384` with "+/-4096 samples" in a `MEM 8193`
-    /// buffer; the SPINAsm manual's WLDS/CHO examples repeat the same 2:1
+    /// buffer; the SpinASM user manual's WLDS/CHO examples repeat the same 2:1
     /// amplitude-to-length pairing (`Amp EQU 8194` for a 4097-sample line).
     pub fn cho(self, range_reg: i32, flags: ChoFlags) -> ChoValue {
         let v = self.value(range_reg, flags.contains(ChoFlags::COS));

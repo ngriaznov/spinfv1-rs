@@ -1,11 +1,11 @@
 # spinfv1
 
-A [Spin Semiconductor FV-1](http://www.spinsemi.com/products.html) audio DSP
+A [Spin Semiconductor FV-1](https://www.spinsemi.com/products.html) audio DSP
 emulator in Rust: the complete 21-opcode instruction set on a bit-exact S.23
 saturating fixed-point core, a built-in SpinASM assembler, and full test
 coverage including audio end-to-end tests. A pure library with zero
-dependencies by default (optionally `no_std`) and a one-sample-per-call API,
-ready to embed in any real-time host.
+dependencies in every configuration (`no_std` included) and a
+one-sample-per-call API, ready to embed in any real-time host.
 
 ## What's emulated
 
@@ -35,10 +35,9 @@ ready to embed in any real-time host.
 - **I/O**: stereo ADC/DAC registers, three pots, per-sample or block
   processing, and the 512-byte big-endian EEPROM/bank program format.
 
-Zero runtime dependencies in every configuration, `no_std` included. The chip's native rate
-is 32,768 Hz (`spinfv1::SAMPLE_RATE`); the emulator itself is
-one-sample-per-call and rate-agnostic. Two ways to host it at another rate,
-both officially grounded in chip behavior:
+The chip's native rate is 32,768 Hz (`spinfv1::SAMPLE_RATE`); the
+emulator itself is one-sample-per-call and rate-agnostic. Two ways to
+host it at another rate, both officially grounded in chip behavior:
 
 - **Boundary resampling** (opt-in `resampler` feature): keep the chip at
   32,768 Hz and convert at the edges, so delays, LFO rates and filter
@@ -118,7 +117,7 @@ let mut fv1 = Fv1::new();
 fv1.load_program(&program);
 ```
 
-It supports the SpinASM users manual subset needed for real programs:
+It supports the SpinASM user manual subset needed for real programs:
 case-insensitive mnemonics/registers/symbols, `;` comments, labels with
 forward references (`SKP` distances are computed automatically), `EQU`
 and `MEM` directives (`MEM` defines `NAME`/`NAME#`/`NAME^` for a buffer's
@@ -169,7 +168,7 @@ error. Both configurations still require a global allocator
 
 1. **Spec conformance** (`tests/spec_conformance.rs`): a deliberate
    per-instruction matrix. Every `Instruction` variant has a case that
-   quotes the Spin ASM users manual's formula and checks the emulator
+   quotes the SpinASM user manual's formula and checks the emulator
    against an independent in-test reference implementation of the spec
    arithmetic (never the crate's own helpers). Completeness is enforced
    structurally: an exhaustive `match` makes a new instruction variant a
@@ -279,8 +278,8 @@ close to 80× the chip's real-time rate, and light effects sit well above
 ## References
 
 This is an original, from-scratch implementation based on Spin
-Semiconductor's public documentation: the FV-1 datasheet, the Spin ASM
-users manual, and *AN-0001: Basics of the LFOs in the FV-1*.
+Semiconductor's public documentation: the FV-1 datasheet, the SpinASM
+user manual, and *AN-0001: Basics of the LFOs in the FV-1*.
 
 ## Roadmap
 

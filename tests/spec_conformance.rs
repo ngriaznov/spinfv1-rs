@@ -222,7 +222,7 @@ const CASES: &[Case] = &[
     Case {
         variant: "LOG",
         spec: "LOG K1,K2: ACC = (LOG2(ACC)/16)*K1 + K2 \
-               (K1: 16b S1.14; K2: 11b S4.6 per the SPINAsm manual, an \
+               (K1: 16b S1.14; K2: 11b S4.6 per the SpinASM user manual, an \
                offset in the /16-normalized log domain, -16 to +15.98); \
                LOG(0) pins to the domain floor",
         run: || {

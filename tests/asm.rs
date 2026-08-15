@@ -562,7 +562,7 @@ fn s_10_shorthands() {
     assert_eq!(c, 16384); // S1.14: 1.0 is exactly representable.
     assert_eq!(d, 1023); // S.10 shorthand: 1.0 -> max representable.
 
-    // LOG's D is S4.6 (SPINAsm manual), so its shorthand ceiling is 16.0.
+    // LOG's D is S4.6 (SpinASM user manual), so its shorthand ceiling is 16.0.
     let p = assemble("LOG 1.0, 16.0").unwrap();
     let Instruction::Log { d, .. } = p.instructions()[0] else {
         panic!("expected LOG")
@@ -611,7 +611,7 @@ fn mem_allocates_sequentially_and_defines_start_end_mid() {
             other => panic!("expected RDA, got {other}"),
         })
         .collect();
-    // SPINAsm reserves size + 1 locations per block (name# = start + size
+    // SpinASM reserves size + 1 locations per block (name# = start + size
     // is the last), so B starts one past A#.
     assert_eq!(addrs, vec![0, 100, 50, 101, 151, 126]);
 }

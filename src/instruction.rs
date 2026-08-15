@@ -12,7 +12,7 @@
 //! [`crate::fixed`] for the formats); use [`crate::fixed::coeff`] to quantize
 //! real numbers when building programs by hand.
 //!
-//! Encodings follow the Spin ASM users manual; the bit layouts were
+//! Encodings follow the SpinASM user manual; the bit layouts were
 //! cross-checked against independent public documentation of the format.
 
 use core::fmt;
@@ -292,7 +292,7 @@ pub enum Instruction {
     },
     /// `LOG C, D` — `ACC = C * log2(|ACC|) + D` in S4.19; `c` S1.14, `d` S4.6.
     ///
-    /// The SPINAsm manual: D is an offset in the logarithmic domain,
+    /// The SpinASM user manual: D is an offset in the logarithmic domain,
     /// entered as Real(S4.6) in the range -16 to +15.999998.
     Log {
         /// Coefficient, raw S1.14.
