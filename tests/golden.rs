@@ -13,6 +13,10 @@
 //! regenerate the constants with:
 //! `SPINFV1_PRINT_HASHES=1 cargo test --test golden -- --nocapture`
 
+// The assembler is `std`-only, so this file is compiled out under
+// `--no-default-features --features libm`.
+#![cfg(feature = "std")]
+
 use spinfv1::{Fv1, assemble};
 
 /// Deterministic stereo test signal, pure integer math so every platform
