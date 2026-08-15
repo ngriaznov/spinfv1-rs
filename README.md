@@ -61,6 +61,18 @@ latency reporting. Build the archive with
 `target/release/libspinfv1.a`; the header carries the threading and
 real-time-safety contract.
 
+The boundary's safety is tested at three levels: Rust ABI tests
+(lifecycle, null rejection, error messages, exact parity with the
+direct API, panic containment — a caught panic surfaces as an error
+code and leaves the handle usable), a header↔implementation
+consistency test (the exported symbol set and the header's
+declarations must match exactly), and a C-side hostile-host harness
+(`tests/c/run.sh`) that compiles against the real header and static
+library and runs create/destroy churn, bad programs, per-frame pot
+automation, mid-stream reprogramming, and heap-exact block buffers
+under AddressSanitizer + UBSan + LeakSanitizer, and again under
+valgrind.
+
 ## Usage
 
 ```rust

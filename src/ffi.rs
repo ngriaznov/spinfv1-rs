@@ -339,3 +339,35 @@ pub unsafe extern "C" fn spinfv1_latency(handle: *const SpinFv1) -> u32 {
 pub extern "C" fn spinfv1_native_rate() -> f64 {
     crate::resampler::CHIP_RATE
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The panic wall itself: a panicking operation must surface as
+    /// [`SPINFV1_ERR_PANIC`] and leave the handle usable, never unwind
+    /// across the boundary.
+    #[test]
+    fn with_handle_contains_panics_and_handle_survives() {
+        let handle = spinfv1_create(0.0);
+        assert!(!handle.is_null());
+        let code = unsafe { with_handle(handle, |_| -> i32 { panic!("deliberate test panic") }) };
+        assert_eq!(code, SPINFV1_ERR_PANIC);
+        // The handle must still work after a contained panic.
+        unsafe {
+            let (mut l, mut r) = (1.0f32, 1.0f32);
+            assert_eq!(
+                spinfv1_process(handle, 0.0, 0.0, &raw mut l, &raw mut r),
+                SPINFV1_OK
+            );
+            assert_eq!((l, r), (0.0, 0.0));
+            spinfv1_destroy(handle);
+        }
+    }
+
+    #[test]
+    fn with_handle_rejects_null_before_running() {
+        let code = unsafe { with_handle(std::ptr::null_mut(), |_| SPINFV1_OK) };
+        assert_eq!(code, SPINFV1_ERR_NULL);
+    }
+}
