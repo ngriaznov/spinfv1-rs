@@ -13,8 +13,9 @@
 //!   delay/WRAP/LR/RMPA, and ADDR_PTR addressing. The LFO
 //!   interpolation, LOG/EXP, and NA-crossfade families are deliberately
 //!   absent from this tier: there this emulator follows Spin's
-//!   documentation where that reference diverges from it (see README
-//!   "Fidelity notes"), so a bit-compare would pin the wrong behavior.
+//!   documentation where that reference diverges from it (see the
+//!   crate-level fidelity notes), so a bit-compare would pin the wrong
+//!   behavior.
 //!   These files cannot be regenerated from this crate.
 //!
 //! * `tests/data/corpus/*.wav` — the full standard Spin factory-program
