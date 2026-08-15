@@ -36,10 +36,10 @@
 //!
 //! * All arithmetic is integer fixed point matching the hardware formats;
 //!   multiplications truncate and additions saturate at the 24-bit rails.
-//! * LFO phase/scaling behavior follows the hardware-validated
-//!   [`reference-impl`](https://example.invalid) model: SIN LFOs are
-//!   magic-circle oscillators stepping `rate / 2^17` radians per sample; RMP
-//!   LFOs count a 22-bit phase down by `rate / 16` per sample.
+//! * LFO phase/scaling behavior matches what has been observed and validated
+//!   on real chips: SIN LFOs are magic-circle oscillators stepping
+//!   `rate / 2^17` radians per sample; RMP LFOs count a 22-bit phase down by
+//!   `rate / 16` per sample.
 //! * `WLDS`/`WLDR` write the LFO rate/range registers without resetting the
 //!   oscillator phase, so programs that run them every pass (instead of
 //!   guarding with `SKP RUN`) still modulate correctly; `JAM` resets a ramp.

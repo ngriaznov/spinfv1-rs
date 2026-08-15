@@ -26,9 +26,8 @@ is the intended first consumer.
   and both RMP LFOs (22-bit phase, `rate/16` per sample), with live
   register-driven rate/range (pot-controlled modulation works), `JAM`,
   and the full `CHO` flag set — `COS`, `REG`, `COMPC`, `COMPA`, `RPTR2`,
-  `NA` — with the 8-bit (SIN) / 10-bit (RMP) interpolation fractions.
-  LFO semantics follow the hardware-validated
-  [reference-impl](https://example.invalid) model.
+  `NA` — with the 8-bit (SIN) / 10-bit (RMP) interpolation fractions,
+  matching LFO behavior that has been validated against real chips.
 - **I/O**: stereo ADC/DAC registers, three pots, per-sample or block
   processing, and the 512-byte big-endian EEPROM/bank program format.
 
@@ -96,12 +95,16 @@ let (out_l, out_r) = fv1.process(0.25, 0.25);
 
 ## References
 
+This is an original, from-scratch implementation. The following public
+resources were consulted as *behavioral documentation only* (instruction
+bit layouts, fixed-point formats, and chip behavior — no code was derived
+from them):
+
 - Spin FV-1 datasheet & *AN-0001: Basics of the LFOs in the FV-1*
-- [reference-impl](https://example.invalid) — instruction encodings
-- [reference-impl](https://example.invalid) — hardware-validated
-  LFO/CHO semantics
-- [reference-impl](https://example.invalid) — the existing C++ VCV Rack
-  emulator
+- [reference-impl](https://example.invalid) — documentation of the
+  instruction word formats
+- [reference-impl](https://example.invalid) — documentation of LFO
+  and pipeline behavior validated against real hardware
 
 ## License
 

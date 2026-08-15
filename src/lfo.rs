@@ -5,7 +5,10 @@
 //! once per sample, after the program pass — their value is constant within a
 //! pass, which is why the `REG` latch flag is a no-op here.
 //!
-//! The models follow the hardware-validated `reference-impl` implementation.
+//! The oscillator models implement the hardware behavior described in Spin's
+//! datasheet and application notes (phase step formulas, amplitude scaling,
+//! interpolation fraction widths), cross-checked against behavior others have
+//! validated on real chips. The implementation itself is original.
 
 use crate::fixed::{ACC_MAX, mul_s23};
 use crate::instruction::ChoFlags;

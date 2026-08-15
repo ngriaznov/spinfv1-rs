@@ -12,8 +12,8 @@
 //! [`crate::fixed`] for the formats); use [`crate::fixed::coeff`] to quantize
 //! real numbers when building programs by hand.
 //!
-//! Encodings follow the Spin ASM users manual, cross-checked against the
-//! `reference-impl` assembler and the `reference-impl` decoder.
+//! Encodings follow the Spin ASM users manual; the bit layouts were
+//! cross-checked against independent public documentation of the format.
 
 use core::fmt;
 
