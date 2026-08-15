@@ -17,34 +17,24 @@ capabilities and test coverage are documented in the README.
   reverb feedback loops. Recorded so the idea isn't re-explored without
   new information.
 
-## 2. Hardware validation
-
-Record a real FV-1 (any pedal with pot access) playing the corpus dry
-phrase through the factory programs, and diff against
-`examples/render_corpus.rs` output. The emulator's renders are
-deterministic, so this pins down the area Spin's documents leave open:
-the mantissa/exponent split of the 14-bit compressed floating-point
-delay word (the datasheet documents the format's existence but not its
-layout).
-
-## 3. Emulation-fidelity options
+## 2. Emulation-fidelity options
 
 - Decide whether the 14-bit compressed-float delay model
-  (`set_delay_quantization`) should become the default once hardware
-  comparisons pin down the word's actual mantissa/exponent split.
+  (`set_delay_quantization`) should become the default (the datasheet
+  documents the compressed format's existence but not its
+  mantissa/exponent split; ours is a documented model).
 - Decide on pot quantization: independent implementations model the pot
-  inputs as 10-bit values (floor to 1024 steps); we keep full S.23 pot
-  resolution for now. Revisit alongside hardware validation, since pot
-  smoothing/quantization audibly interacts with programs that derive
-  LFO rates from pots.
+  inputs as 10-bit values (floor to 1024 steps, matching the SPINAsm
+  manual's "approximately a 10-bit resolution"); we keep full S.23 pot
+  resolution for now, which also suits smooth virtual knobs.
 
-## 4. Assembler policy
+## 3. Assembler policy
 
 When a third-party program surfaces a construct the assembler rejects,
 close the gap together with that program as a regression test, as was
 done for `-kap`, `1/64` and `sym < 8`.
 
-## 5. Hosting
+## 4. Hosting
 
 - VCV Rack module — separate repository; consumes this crate's C API
   (`ffi` feature, `include/spinfv1.h`) unchanged. Uses boundary

@@ -24,13 +24,21 @@ jobs:
         run: cargo build --no-default-features --features libm
       - name: Clippy (no_std + libm)
         run: cargo clippy --no-default-features --features libm --all-targets -- -D warnings
+      - name: Clippy (resampler + ffi)
+        run: cargo clippy --features ffi --all-targets -- -D warnings
       - name: Tests
         run: cargo test
+      - name: Tests (resampler + ffi)
+        run: cargo test --features ffi
       - name: Tests (no_std + libm)
         run: cargo test --no-default-features --features libm
+      - name: C ABI safety battery (ASan/UBSan/LSan + valgrind)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq valgrind
+          ./tests/c/run.sh
       - name: Benchmarks (compile only)
         run: cargo bench --no-run
       - name: Docs
-        run: cargo doc --no-deps
+        run: cargo doc --no-deps --features ffi
         env:
           RUSTDOCFLAGS: -D warnings

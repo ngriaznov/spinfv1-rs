@@ -55,14 +55,14 @@ pub const fn sx(v: u32, bits: u32) -> i32 {
 #[inline]
 #[must_use]
 pub fn f32_to_s23(x: f32) -> i32 {
-    sat24(crate::math::round(f64::from(x) * ONE_S23 as f64) as i64)
+    sat24(crate::math::round(f64::from(x) * f64::from(ONE_S23)) as i64)
 }
 
 /// Convert an S.23 value to a float sample.
 #[inline]
 #[must_use]
 pub fn s23_to_f32(v: i32) -> f32 {
-    (v as f64 / ONE_S23 as f64) as f32
+    (f64::from(v) / f64::from(ONE_S23)) as f32
 }
 
 /// Multiply an S.23 value by an S1.14 coefficient (raw), truncating like the
@@ -129,7 +129,7 @@ pub mod coeff {
     /// S.23: 24-bit register value, `[-1.0, ~1.0)`.
     #[must_use]
     pub fn s_23(x: f64) -> i32 {
-        super::sat24(crate::math::round(x * super::ONE_S23 as f64) as i64)
+        super::sat24(crate::math::round(x * f64::from(super::ONE_S23)) as i64)
     }
 }
 

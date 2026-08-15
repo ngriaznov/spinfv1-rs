@@ -8,6 +8,13 @@ description = "Spin Semiconductor FV-1 DSP chip emulator: full instruction set, 
 repository = "https://github.com/ngriaznov/spinfv1-rs"
 keywords = ["fv-1", "dsp", "emulator", "audio", "spin-semiconductor"]
 categories = ["emulators", "multimedia::audio"]
+readme = "README.md"
+# Keep the published crate lean: test fixtures, listening corpus, and
+# repository plumbing stay in the repo only.
+exclude = ["/tests/data", "/examples/programs", "/.githooks", "/.github"]
+
+[package.metadata.docs.rs]
+features = ["ffi"]
 
 [features]
 default = ["std"]

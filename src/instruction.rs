@@ -558,7 +558,7 @@ impl Instruction {
             Self::Wldr { lfo, freq, amp } => {
                 0b01 << 30
                     | u32::from(lfo) << 29
-                    | (freq as u16 as u32) << 13
+                    | u32::from(freq as u16) << 13
                     | amp.code() << 5
                     | 0x12
             }
@@ -566,7 +566,9 @@ impl Instruction {
             Self::ChoRda { lfo, flags, addr } => {
                 cho(0b00, lfo, flags) | u32::from(addr) << 5 | 0x14
             }
-            Self::ChoSof { lfo, flags, d } => cho(0b10, lfo, flags) | (d as u16 as u32) << 5 | 0x14,
+            Self::ChoSof { lfo, flags, d } => {
+                cho(0b10, lfo, flags) | u32::from(d as u16) << 5 | 0x14
+            }
             Self::ChoRdal { lfo, flags } => cho(0b11, lfo, flags) | 0x14,
             Self::Raw(word) => word,
         }
@@ -592,7 +594,7 @@ fn f11(v: i16) -> u32 {
 
 /// Pack a 16-bit signed field.
 fn f16(v: i16) -> u32 {
-    v as u16 as u32
+    u32::from(v as u16)
 }
 
 /// Pack a register address field.

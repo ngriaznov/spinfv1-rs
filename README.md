@@ -164,7 +164,8 @@ error. Both configurations still require a global allocator
 
 ## Testing
 
-`cargo test` runs over 130 tests in seven layers:
+`cargo test --features ffi` runs about 160 tests in nine layers
+(plus the C-side sanitizer battery, `tests/c/run.sh`):
 
 1. **Spec conformance** (`tests/spec_conformance.rs`): a deliberate
    per-instruction matrix. Every `Instruction` variant has a case that
@@ -283,9 +284,9 @@ users manual, and *AN-0001: Basics of the LFOs in the FV-1*.
 
 ## Roadmap
 
-Planned extensions — including the sample-rate strategy (boundary
-resampling vs. hardware-style "crystal swap" operation) — are documented
-in [ROADMAP.md](ROADMAP.md).
+Future work — the VCV Rack module, remaining emulation-fidelity
+decisions, and crates.io publication — is documented in
+[ROADMAP.md](ROADMAP.md).
 
 ## License
 

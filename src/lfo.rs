@@ -54,7 +54,7 @@ impl SinLfo {
     }
 
     /// Range-scaled output as read by `CHO RDAL` (raw S.23).
-    pub fn value(&self, range_reg: i32, cos: bool) -> i32 {
+    pub fn value(self, range_reg: i32, cos: bool) -> i32 {
         mul_s23(
             i64::from(if cos { self.cos } else { self.sin }),
             i64::from(range_reg),
@@ -71,7 +71,7 @@ impl SinLfo {
     /// example pairs `Ka = 16384` with "+/-4096 samples" in a `MEM 8193`
     /// buffer; the SPINAsm manual's WLDS/CHO examples repeat the same 2:1
     /// amplitude-to-length pairing (`Amp EQU 8194` for a 4097-sample line).
-    pub fn cho(&self, range_reg: i32, flags: ChoFlags) -> ChoValue {
+    pub fn cho(self, range_reg: i32, flags: ChoFlags) -> ChoValue {
         let v = self.value(range_reg, flags.contains(ChoFlags::COS));
         let mut coeff = (v & 0x3FF) << 13;
         let v = if flags.contains(ChoFlags::COMPA) {
@@ -128,7 +128,7 @@ impl RampLfo {
     }
 
     /// Raw phase as an S.23 value (what `CHO RDAL` reads).
-    pub fn value(&self) -> i32 {
+    pub fn value(self) -> i32 {
         self.phase
     }
 
@@ -139,7 +139,7 @@ impl RampLfo {
     /// reported for this envelope show the flat-topped shape rather than a
     /// pure triangle, and the flat zero region is what lets AN-0001's
     /// pitch shifter mute a pointer for the whole wrap glitch.
-    fn crossfade(&self, range_reg: i32) -> i32 {
+    fn crossfade(self, range_reg: i32) -> i32 {
         let r = Self::range(range_reg);
         let tri = self.phase.min(r - self.phase);
         let v = (tri << (3 + Self::amp_shift(range_reg))) - (crate::fixed::ONE_S23 >> 1);
@@ -148,7 +148,7 @@ impl RampLfo {
 
     /// Resolve a `CHO` access; the coefficient comes from the 10 fractional
     /// bits below the sample offset (or the cross-fade envelope with `NA`).
-    pub fn cho(&self, range_reg: i32, flags: ChoFlags) -> ChoValue {
+    pub fn cho(self, range_reg: i32, flags: ChoFlags) -> ChoValue {
         if flags.contains(ChoFlags::NA) {
             let mut coeff = self.crossfade(range_reg);
             if flags.contains(ChoFlags::COMPC) {

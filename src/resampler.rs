@@ -31,7 +31,7 @@ fn bessel_i0(x: f64) -> f64 {
     let mut sum = 1.0;
     let mut term = 1.0;
     for k in 1..32 {
-        term *= (x / (2.0 * k as f64)).powi(2);
+        term *= (x / (2.0 * f64::from(k))).powi(2);
         sum += term;
         if term < 1e-12 * sum {
             break;

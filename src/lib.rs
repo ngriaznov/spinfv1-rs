@@ -32,6 +32,14 @@
 //! Programs can also be loaded from standard 512-byte EEPROM/bank images via
 //! [`Program::from_bytes`].
 //!
+//! ## Hosting at other sample rates
+//!
+//! The chip's native rate is 32,768 Hz ([`SAMPLE_RATE`]), but `process` is
+//! rate-agnostic. The opt-in `resampler` feature adds boundary resampling
+//! (`resampler::HostedFv1`) to run the chip at its authentic rate inside any
+//! host, and the `ffi` feature exposes both hosting modes behind a
+//! panic-safe C ABI (`include/spinfv1.h`) for C/C++ hosts.
+//!
 //! ## Fidelity notes
 //!
 //! * All arithmetic is integer fixed point matching the hardware formats;
@@ -47,7 +55,9 @@
 //!   a 14-bit compressed floating-point word. Call
 //!   [`Fv1::set_delay_quantization`] to model that.
 //! * `LOG`/`EXP` are computed in double precision and rounded to S.23, which
-//!   is at least as accurate as the chip's internal approximation.
+//!   is at least as accurate as the chip's internal approximation — using
+//!   in-crate deterministic arithmetic, so results are bit-identical on
+//!   every platform and in every build configuration.
 //!
 //! ## `no_std`
 //!
@@ -59,6 +69,7 @@
 //! compile under `no_std`, where the item doesn't exist.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![warn(missing_docs)]
 
 #[cfg(not(any(feature = "std", feature = "libm")))]
 compile_error!(
