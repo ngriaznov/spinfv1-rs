@@ -3,8 +3,8 @@
 A [Spin Semiconductor FV-1](http://www.spinsemi.com/products.html) audio DSP
 emulator in Rust: the complete 21-opcode instruction set on a bit-exact S.23
 saturating fixed-point core, with full test coverage including audio
-end-to-end tests. Built to be embedded in real-time hosts — a VCV Rack module
-is the intended first consumer.
+end-to-end tests. A pure library with zero dependencies and a
+one-sample-per-call API, ready to embed in any real-time host.
 
 ## What's emulated
 

@@ -7,7 +7,7 @@
 //! flanger and pitch-shift programs.
 //!
 //! The core is dependency-free and processes one sample per call, which makes
-//! it straightforward to embed in real-time hosts such as VCV Rack modules.
+//! it straightforward to embed in any real-time audio host.
 //!
 //! ## Quick start
 //! ```
