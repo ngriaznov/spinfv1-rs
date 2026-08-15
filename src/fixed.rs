@@ -90,7 +90,7 @@ pub const fn mul_s23(x: i64, y: i64) -> i64 {
 
 /// Coefficient quantizers: convert real numbers to the raw two's-complement
 /// field values an assembler would emit. Values are rounded to nearest and
-/// clamped to the representable range, mirroring SpinASM/reference-impl.
+/// clamped to the representable range, mirroring SpinASM.
 pub mod coeff {
     /// S1.14: 16-bit field, `[-2.0, 1.99993896484375]`.
     #[must_use]

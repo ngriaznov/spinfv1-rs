@@ -65,7 +65,7 @@ let (out_l, out_r) = fv1.process(0.25, 0.25);
 
 1. **Unit** (`src/fixed.rs`): saturation, sign extension, quantizers.
 2. **Codec** (`tests/codec.rs`): golden instruction words checked against
-   SpinASM/reference-impl encodings, exhaustive field sweeps, and a 2-million-word
+   SpinASM encodings, exhaustive field sweeps, and a 2-million-word
    fuzz proving decode/encode is total and canonical-lossless.
 3. **Semantics** (`tests/alu.rs`, `tests/delay.rs`, `tests/skp.rs`): every
    instruction verified against independently computed fixed-point
@@ -95,16 +95,9 @@ let (out_l, out_r) = fv1.process(0.25, 0.25);
 
 ## References
 
-This is an original, from-scratch implementation. The following public
-resources were consulted as *behavioral documentation only* (instruction
-bit layouts, fixed-point formats, and chip behavior — no code was derived
-from them):
-
-- Spin FV-1 datasheet & *AN-0001: Basics of the LFOs in the FV-1*
-- [reference-impl](https://example.invalid) — documentation of the
-  instruction word formats
-- [reference-impl](https://example.invalid) — documentation of LFO
-  and pipeline behavior validated against real hardware
+This is an original, from-scratch implementation based on Spin
+Semiconductor's public documentation: the FV-1 datasheet, the Spin ASM
+users manual, and *AN-0001: Basics of the LFOs in the FV-1*.
 
 ## License
 

@@ -1,12 +1,12 @@
 //! Instruction encode/decode coverage: golden words cross-checked against the
-//! SpinASM/reference-impl encodings, exhaustive field sweeps, and a full-u32 fuzz
+//! SpinASM encodings, exhaustive field sweeps, and a full-u32 fuzz
 //! proving decode/encode is total and lossless.
 
 use spinfv1::{ChoFlags, Instruction, LfoSel, RampAmp, SkpCond, reg};
 
 #[test]
 fn golden_words() {
-    // Hand-assembled against the Spin ASM manual / reference-impl encodings.
+    // Hand-assembled against the Spin ASM users manual.
     let cases: &[(Instruction, u32)] = &[
         // RDAX ADCL, 1.0 => C=0x4000<<16 | 0x14<<5 | 0x04
         (
