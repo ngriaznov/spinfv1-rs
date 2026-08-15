@@ -118,3 +118,22 @@ pub fn dry_phrase() -> Vec<f32> {
     }
     out
 }
+
+/// One-pole DC blocker (~10 Hz highpass), emulating the AC-coupled output
+/// stage every FV-1 board has. Some factory programs (the GA_DEMO series)
+/// deliberately ride the DAC on a DC bias that the output caps remove on
+/// real hardware; without this the bias would land in the rendered file.
+pub fn dc_block(x: &[f32]) -> Vec<f32> {
+    let r = 1.0 - core::f64::consts::TAU * 10.0 / HOST_RATE;
+    let mut y_prev = 0.0f64;
+    let mut x_prev = 0.0f64;
+    x.iter()
+        .map(|&s| {
+            let xs = f64::from(s);
+            let y = xs - x_prev + r * y_prev;
+            x_prev = xs;
+            y_prev = y;
+            y as f32
+        })
+        .collect()
+}

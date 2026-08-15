@@ -5,11 +5,17 @@
 //! cargo run --release --example render_corpus [output_dir]
 //! ```
 //!
-//! Writes `dry_48k.wav` once, plus `<program>_48k.wav` for each `.spn`
-//! (dry mixed with the program's wet output). Comparing these renders
-//! against real-hardware recordings — or just against your ears across
-//! emulator changes — is how scaling bugs like the SIN LFO excursion get
-//! caught. All pots sit at 0.5.
+//! Writes `dry_48k.wav` once, plus `<program>_48k.wav` for each `.spn`.
+//! Comparing these renders against real-hardware recordings — or just
+//! against your ears across emulator changes — is how scaling bugs like
+//! the SIN LFO excursion get caught.
+//!
+//! Pots and dry/wet blend are set per program from each source's own pot
+//! documentation: the GA_DEMO guitar-amp programs put their *built-in
+//! reverb* on POT0 (turned fully off here so the headline effect is what
+//! you hear) and mix dry internally (so no external dry is added), while
+//! the rom_* reverbs output wet-only and get an external dry blend.
+//! Unlisted programs default to all pots at 0.5 with a 0.6/0.6 mix.
 
 #[path = "support/mod.rs"]
 mod support;
@@ -17,7 +23,22 @@ mod support;
 use std::path::Path;
 
 use spinfv1::{Fv1, SAMPLE_RATE, assemble};
-use support::{HOST_RATE, dry_phrase, resample, write_wav_stereo};
+use support::{HOST_RATE, dc_block, dry_phrase, resample, write_wav_stereo};
+
+/// Per-program settings: `(stem, [pot0, pot1, pot2], dry_gain, wet_gain)`,
+/// derived from the pot descriptions in each program's header comments.
+const SETTINGS: &[(&str, [f32; 3], f32, f32)] = &[
+    // GA_DEMO: POT0 = built-in reverb level (off), POT2 = effect level/width;
+    // these programs mix dry internally, so no external dry is added.
+    ("GA_DEMO_CHORUS", [0.0, 0.5, 0.8], 0.0, 0.9),
+    ("GA_DEMO_FLANGE", [0.0, 0.5, 0.8], 0.0, 0.9),
+    ("GA_DEMO_TREM", [0.0, 0.6, 0.9], 0.0, 0.9),
+    ("GA_DEMO_PHASE", [0.0, 0.5, 0.8], 0.0, 0.9),
+    // pot0 = pitch amount: 0.75 gives a clearly audible upward shift.
+    ("rom_pitch", [0.75, 0.5, 0.5], 0.0, 0.9),
+    // pot0 = pitch, pot1 = echo delay, pot2 = echo mix.
+    ("rom_pt_echo", [0.75, 0.5, 0.8], 0.0, 0.9),
+];
 
 fn main() -> std::io::Result<()> {
     let out_dir = std::env::args().nth(1).unwrap_or_else(|| ".".into());
@@ -53,10 +74,14 @@ fn main() -> std::io::Result<()> {
                 continue;
             }
         };
+        let (pots, dry_gain, wet_gain) = SETTINGS
+            .iter()
+            .find(|(name, ..)| *name == stem)
+            .map_or(([0.5; 3], 0.6, 0.6), |&(_, p, d, w)| (p, d, w));
         let mut fv1 = Fv1::new();
         fv1.load_program(&program);
-        for pot in 0..3 {
-            fv1.set_pot(pot, 0.5);
+        for (pot, &v) in pots.iter().enumerate() {
+            fv1.set_pot(pot, v);
         }
         let (mut wet_l, mut wet_r) = (Vec::new(), Vec::new());
         for &x in &dry_chip {
@@ -64,15 +89,13 @@ fn main() -> std::io::Result<()> {
             wet_l.push(l);
             wet_r.push(r);
         }
-        let wet_l = resample(&wet_l, SAMPLE_RATE, HOST_RATE);
-        let wet_r = resample(&wet_r, SAMPLE_RATE, HOST_RATE);
+        let wet_l = dc_block(&resample(&wet_l, SAMPLE_RATE, HOST_RATE));
+        let wet_r = dc_block(&resample(&wet_r, SAMPLE_RATE, HOST_RATE));
 
-        // Effects differ in whether they output wet-only or a full mix; a
-        // moderate dry blend keeps every render comparable by ear.
         let frames = dry_48k.len().min(wet_l.len());
         let mix = |wet: &[f32]| -> Vec<f32> {
             (0..frames)
-                .map(|i| 0.6 * dry_48k[i] + 0.6 * wet[i])
+                .map(|i| dry_gain * dry_48k[i] + wet_gain * wet[i])
                 .collect()
         };
         let (mix_l, mix_r) = (mix(&wet_l), mix(&wet_r));
