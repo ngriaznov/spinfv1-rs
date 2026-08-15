@@ -3,6 +3,11 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.1.0); tags v<version> at the current commit"
+        required: true
 
 permissions:
   contents: write
@@ -38,8 +43,10 @@ jobs:
         run: cargo rustc --release --features ffi --crate-type staticlib --target ${{ matrix.target }}
       - name: Assemble SDK bundle
         shell: bash
+        env:
+          TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
         run: |
-          NAME="spinfv1-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          NAME="spinfv1-${TAG}-${{ matrix.target }}"
           mkdir -p "$NAME/lib" "$NAME/include"
           cp "target/${{ matrix.target }}/release/${{ matrix.lib }}" "$NAME/lib/"
           cp include/spinfv1.h "$NAME/include/"
@@ -51,6 +58,7 @@ jobs:
           fi
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
           files: |
             spinfv1-*.tar.gz
             spinfv1-*.zip
@@ -67,5 +75,6 @@ jobs:
           cp target/package/spinfv1-*.crate .
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
           files: spinfv1-*.crate
           generate_release_notes: true
