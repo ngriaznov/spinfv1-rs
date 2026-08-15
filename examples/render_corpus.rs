@@ -28,19 +28,24 @@ use support::{HOST_RATE, dc_block, dry_phrase, resample, write_wav_stereo};
 /// Per-program settings: `(stem, [pot0, pot1, pot2], dry_gain, wet_gain)`,
 /// derived from the pot descriptions in each program's header comments.
 const SETTINGS: &[(&str, [f32; 3], f32, f32)] = &[
-    // GA_DEMO: POT0 = built-in reverb level (off), POT2 = effect level/width;
-    // these programs mix dry internally, so no external dry is added.
-    ("GA_DEMO_CHORUS", [0.0, 0.5, 0.8], 0.0, 0.9),
-    ("GA_DEMO_FLANGE", [0.0, 0.5, 0.8], 0.0, 0.9),
-    ("GA_DEMO_TREM", [0.0, 0.6, 0.9], 0.0, 0.9),
-    ("GA_DEMO_PHASE", [0.0, 0.5, 0.8], 0.0, 0.9),
-    // pot0 = pitch: the program's SOF maps the pot to +/-4 semitones
-    // (rate +/-0.125); pot fully down renders the -4 semitone end.
+    // GA_DEMO: POT0 = built-in reverb (off); effect rate up, level/width max.
+    ("GA_DEMO_CHORUS", [0.0, 0.8, 1.0], 0.0, 0.9),
+    ("GA_DEMO_FLANGE", [0.0, 0.6, 1.0], 0.0, 0.9),
+    ("GA_DEMO_TREM", [0.0, 0.8, 1.0], 0.0, 0.9),
+    ("GA_DEMO_PHASE", [0.0, 0.7, 1.0], 0.0, 0.9),
+    // pot0 = pitch: pot fully down = ratio 0.75 (about -5 semitones).
     ("rom_pitch", [0.0, 0.5, 0.5], 0.0, 0.9),
-    // pot0 = pitch, pot1 = echo delay, pot2 = echo mix.
-    ("rom_pt_echo", [0.0, 0.5, 0.8], 0.0, 0.9),
+    // pot0 = pitch down, pot1 = long echo delay, pot2 = echo mix full.
+    ("rom_pt_echo", [0.0, 0.8, 1.0], 0.0, 0.9),
     // Our own fixed octave-down transposer; no pots.
     ("octave_down", [0.0, 0.0, 0.0], 0.0, 0.9),
+    // Reverbs: maximum reverb time, open shelves, wet well above dry.
+    ("rom_rev1", [1.0, 0.9, 0.9], 0.5, 0.8),
+    ("rom_rev2", [1.0, 0.9, 0.9], 0.5, 0.9),
+    // Effect+reverb combos: reverb mix moderate, effect rate/mix maxed.
+    ("rom_chor_rev", [0.3, 0.7, 1.0], 0.4, 0.9),
+    ("rom_fla_rev", [0.3, 0.7, 1.0], 0.35, 0.65),
+    ("rom_trem_rev", [0.3, 0.8, 1.0], 0.35, 0.65),
 ];
 
 fn main() -> std::io::Result<()> {
