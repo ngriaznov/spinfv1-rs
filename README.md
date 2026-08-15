@@ -225,7 +225,9 @@ close to 80× the chip's real-time rate, and light effects sit well above
   this envelope show the flat-topped shape, and the flat zero is what
   lets AN-0001's pitch shifter mute a tap for the whole wrap glitch.
 - `LOG`/`EXP` use double-precision math rounded to S.23 — at least as
-  accurate as the silicon's piecewise approximation.
+  accurate as the silicon's piecewise approximation. Their behavior is
+  pinned bit-for-bit by an exact-value table (`tests/log_exp_values.rs`)
+  cross-validated against an independent implementation.
 - Delay RAM is 24-bit by default vs. the chip's 14-bit compressed
   floating-point word; opt into the compressed-float model for an
   authentic noise floor (the exact mantissa/exponent split is

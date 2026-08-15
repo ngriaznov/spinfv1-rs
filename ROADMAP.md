@@ -29,19 +29,16 @@ capabilities and test coverage are documented in the README.
 Record a real FV-1 (any pedal with pot access) playing the corpus dry
 phrase through the factory programs, and diff against
 `examples/render_corpus.rs` output. The emulator's renders are
-deterministic, so this pins down the areas Spin's documents leave open:
-the exact LOG/EXP approximation shape and the mantissa/exponent split
-of the 14-bit compressed floating-point delay word (the datasheet
-documents the format's existence but not its layout).
+deterministic, so this pins down the area Spin's documents leave open:
+the mantissa/exponent split of the 14-bit compressed floating-point
+delay word (the datasheet documents the format's existence but not its
+layout).
 
 ## 3. Emulation-fidelity options
 
 - Decide whether the 14-bit compressed-float delay model
   (`set_delay_quantization`) should become the default once hardware
   comparisons pin down the word's actual mantissa/exponent split.
-- Investigate the chip's actual LOG/EXP approximation (currently
-  double-precision math, at least as accurate as silicon but not proven
-  bit-identical).
 - Decide on pot quantization: independent implementations model the pot
   inputs as 10-bit values (floor to 1024 steps); we keep full S.23 pot
   resolution for now. Revisit alongside hardware validation, since pot
