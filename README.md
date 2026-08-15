@@ -50,7 +50,7 @@ host it at another rate, both officially grounded in chip behavior:
   external clock ("the sample rate of the system will be at this applied
   rate").
 
-For C/C++ hosts (VCV Rack, JUCE, …) the opt-in `ffi` feature exposes the
+For C/C++ hosts the opt-in `ffi` feature exposes the
 same two modes behind a panic-safe C ABI (`include/spinfv1.h`): an opaque
 handle with create/destroy, bank or SpinASM program loading with error
 messages, pot control, per-sample and block processing, reset, and

@@ -1,5 +1,4 @@
-//! C ABI for embedding the emulator in non-Rust hosts (VCV Rack, JUCE,
-//! or any C/C++ audio host).
+//! C ABI for embedding the emulator in any non-Rust audio host.
 //!
 //! Build the static library with:
 //!
