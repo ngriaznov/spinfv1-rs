@@ -315,11 +315,34 @@ impl Num {
         }
     }
 
-    fn add_i64(self, d: i64) -> Self {
-        match self {
-            Self::Int(n) => Self::Int(n + d),
-            Self::Real(x) => Self::Real(x + d as f64),
+    fn add(self, rhs: Self) -> Self {
+        match (self, rhs) {
+            (Self::Int(a), Self::Int(b)) => Self::Int(a + b),
+            (a, b) => Self::Real(a.as_f64() + b.as_f64()),
         }
+    }
+
+    fn sub(self, rhs: Self) -> Self {
+        self.add(rhs.negate())
+    }
+
+    fn mul(self, rhs: Self) -> Self {
+        match (self, rhs) {
+            (Self::Int(a), Self::Int(b)) => Self::Int(a * b),
+            (a, b) => Self::Real(a.as_f64() * b.as_f64()),
+        }
+    }
+
+    /// Division stays an integer only when it is exact (`4096/2`); anything
+    /// else (`1/64`) becomes a real, matching SpinASM's float expressions.
+    fn div(self, rhs: Self) -> Result<Self, String> {
+        if rhs.as_f64() == 0.0 {
+            return Err("division by zero".to_string());
+        }
+        Ok(match (self, rhs) {
+            (Self::Int(a), Self::Int(b)) if a % b == 0 => Self::Int(a / b),
+            (a, b) => Self::Real(a.as_f64() / b.as_f64()),
+        })
     }
 
     fn as_int(self) -> Option<i64> {
@@ -345,6 +368,12 @@ enum Token {
     Colon,
     Plus,
     Minus,
+    Star,
+    Slash,
+    /// `<` or `<<`: left shift.
+    Shl,
+    /// `>` or `>>`: right shift.
+    Shr,
     Pipe,
 }
 
@@ -375,6 +404,24 @@ fn tokenize(s: &str) -> Result<Vec<Token>, String> {
             '-' => {
                 out.push(Token::Minus);
                 i += 1;
+            }
+            '*' => {
+                out.push(Token::Star);
+                i += 1;
+            }
+            '/' => {
+                out.push(Token::Slash);
+                i += 1;
+            }
+            '<' => {
+                // SpinASM writes left shift as `<` (Spin's rom_fla_rev uses
+                // `fladel_138 < 8` to build an ADDR_PTR value); accept `<<` too.
+                i += if chars.get(i + 1) == Some(&'<') { 2 } else { 1 };
+                out.push(Token::Shl);
+            }
+            '>' => {
+                i += if chars.get(i + 1) == Some(&'>') { 2 } else { 1 };
+                out.push(Token::Shr);
             }
             '|' => {
                 out.push(Token::Pipe);
@@ -465,7 +512,16 @@ fn parse_radix(digits: &[char], radix: u32) -> Result<i64, String> {
 }
 
 // ---------------------------------------------------------------------
-// Expression evaluation: `term ('|' term)*`, `term = primary (('+'|'-') uint)*`
+// Expression evaluation, loosest to tightest binding:
+//
+//   expr    := shift  ( '|' shift )*                 (integers only)
+//   shift   := sum    ( ('<' | '>') sum )*           (integers only)
+//   sum     := product( ('+' | '-') product )*
+//   product := unary  ( ('*' | '/') unary )*
+//   unary   := '-' unary | number | symbol
+//
+// Arithmetic follows SpinASM: values are integers until a real literal or
+// an inexact division makes them real.
 // ---------------------------------------------------------------------
 
 fn eval(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<Num, String> {
@@ -473,49 +529,96 @@ fn eval(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<Num, String> 
         return Err("expected a value".to_string());
     }
     let mut pos = 0;
-    let mut acc = eval_term(tokens, &mut pos, symtab)?;
-    while pos < tokens.len() {
-        match tokens[pos] {
-            Token::Pipe => {
-                pos += 1;
-                let rhs = eval_term(tokens, &mut pos, symtab)?;
-                let a = acc
-                    .as_int()
-                    .ok_or("cannot combine a real number with '|'")?;
-                let b = rhs
-                    .as_int()
-                    .ok_or("cannot combine a real number with '|'")?;
-                acc = Num::Int(a | b);
-            }
-            _ => return Err("unexpected token in expression".to_string()),
-        }
-    }
-    Ok(acc)
-}
-
-fn eval_term(
-    tokens: &[Token],
-    pos: &mut usize,
-    symtab: &HashMap<String, Num>,
-) -> Result<Num, String> {
-    let mut v = eval_primary(tokens, pos, symtab)?;
-    loop {
-        match tokens.get(*pos) {
-            Some(Token::Plus) => {
-                *pos += 1;
-                v = v.add_i64(expect_uint(tokens, pos)?);
-            }
-            Some(Token::Minus) => {
-                *pos += 1;
-                v = v.add_i64(-expect_uint(tokens, pos)?);
-            }
-            _ => break,
-        }
+    let v = eval_or(tokens, &mut pos, symtab)?;
+    if pos < tokens.len() {
+        return Err("unexpected token in expression".to_string());
     }
     Ok(v)
 }
 
-fn eval_primary(
+fn eval_or(
+    tokens: &[Token],
+    pos: &mut usize,
+    symtab: &HashMap<String, Num>,
+) -> Result<Num, String> {
+    let mut acc = eval_shift(tokens, pos, symtab)?;
+    while tokens.get(*pos) == Some(&Token::Pipe) {
+        *pos += 1;
+        let rhs = eval_shift(tokens, pos, symtab)?;
+        let a = acc
+            .as_int()
+            .ok_or("cannot combine a real number with '|'")?;
+        let b = rhs
+            .as_int()
+            .ok_or("cannot combine a real number with '|'")?;
+        acc = Num::Int(a | b);
+    }
+    Ok(acc)
+}
+
+fn eval_shift(
+    tokens: &[Token],
+    pos: &mut usize,
+    symtab: &HashMap<String, Num>,
+) -> Result<Num, String> {
+    let mut acc = eval_sum(tokens, pos, symtab)?;
+    loop {
+        let left = match tokens.get(*pos) {
+            Some(Token::Shl) => true,
+            Some(Token::Shr) => false,
+            _ => break,
+        };
+        *pos += 1;
+        let rhs = eval_sum(tokens, pos, symtab)?;
+        let a = acc.as_int().ok_or("cannot shift a real number")?;
+        let b = rhs
+            .as_int()
+            .filter(|n| (0..64).contains(n))
+            .ok_or("shift amount must be an integer in 0..64")?;
+        acc = Num::Int(if left { a << b } else { a >> b });
+    }
+    Ok(acc)
+}
+
+fn eval_sum(
+    tokens: &[Token],
+    pos: &mut usize,
+    symtab: &HashMap<String, Num>,
+) -> Result<Num, String> {
+    let mut v = eval_product(tokens, pos, symtab)?;
+    loop {
+        let minus = match tokens.get(*pos) {
+            Some(Token::Plus) => false,
+            Some(Token::Minus) => true,
+            _ => break,
+        };
+        *pos += 1;
+        let rhs = eval_product(tokens, pos, symtab)?;
+        v = if minus { v.sub(rhs) } else { v.add(rhs) };
+    }
+    Ok(v)
+}
+
+fn eval_product(
+    tokens: &[Token],
+    pos: &mut usize,
+    symtab: &HashMap<String, Num>,
+) -> Result<Num, String> {
+    let mut v = eval_unary(tokens, pos, symtab)?;
+    loop {
+        let div = match tokens.get(*pos) {
+            Some(Token::Star) => false,
+            Some(Token::Slash) => true,
+            _ => break,
+        };
+        *pos += 1;
+        let rhs = eval_unary(tokens, pos, symtab)?;
+        v = if div { v.div(rhs)? } else { v.mul(rhs) };
+    }
+    Ok(v)
+}
+
+fn eval_unary(
     tokens: &[Token],
     pos: &mut usize,
     symtab: &HashMap<String, Num>,
@@ -523,13 +626,7 @@ fn eval_primary(
     match tokens.get(*pos) {
         Some(Token::Minus) => {
             *pos += 1;
-            match tokens.get(*pos) {
-                Some(&Token::Number(n)) => {
-                    *pos += 1;
-                    Ok(n.negate())
-                }
-                _ => Err("expected a number after '-'".to_string()),
-            }
+            Ok(eval_unary(tokens, pos, symtab)?.negate())
         }
         Some(&Token::Number(n)) => {
             *pos += 1;
@@ -543,16 +640,6 @@ fn eval_primary(
                 .ok_or_else(|| format!("unknown symbol `{name}`"))
         }
         _ => Err("expected a number or symbol".to_string()),
-    }
-}
-
-fn expect_uint(tokens: &[Token], pos: &mut usize) -> Result<i64, String> {
-    match tokens.get(*pos) {
-        Some(&Token::Number(Num::Int(n))) if n >= 0 => {
-            *pos += 1;
-            Ok(n)
-        }
-        _ => Err("expected a non-negative integer offset after '+' or '-'".to_string()),
     }
 }
 

@@ -27,3 +27,11 @@ harness = false
 
 [profile.test]
 opt-level = 2
+
+[[example]]
+name = "process_48k"
+required-features = ["std"]
+
+[[example]]
+name = "render_corpus"
+required-features = ["std"]

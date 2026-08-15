@@ -901,3 +901,39 @@ fn assembled_feedback_echo_decays_geometrically() {
     }
     assert_eq!(peaks, vec![x, x / 2, x / 4, x / 8]);
 }
+
+#[test]
+fn expressions_from_spin_factory_programs() {
+    // The constructs Spin's own free programs use, which broke assembly
+    // until the evaluator learned full SpinASM expressions.
+    // 1. Unary minus on an EQU'd real (GA_DEMO_* allpass coefficient).
+    let p = assemble("equ kap 0.6\n rda 100, kap\n wrap 100, -kap\n").unwrap();
+    assert_eq!(
+        p.instructions()[1],
+        Instruction::Wrap {
+            addr: 100,
+            c: coeff::s1_9(-0.6)
+        }
+    );
+    // 2. Division producing a real coefficient (GA_DEMO_PHASE `1/64`).
+    let p = assemble("rdax reg0, 1/64\n").unwrap();
+    assert_eq!(
+        p.instructions()[0],
+        Instruction::Rdax {
+            reg: reg::user(0),
+            c: coeff::s1_14(1.0 / 64.0)
+        }
+    );
+    // 3. Left shift building an ADDR_PTR value (rom_fla_rev `sym < 8`).
+    let p = assemble("mem buf 100\nequ mid buf+38\nor mid < 8\n").unwrap();
+    assert_eq!(p.instructions()[0], Instruction::Or { mask: 38 << 8 });
+    // 4. Multiplication and precedence: 2+3*4 = 14.
+    let p = assemble("rda 2+3*4, 0\n").unwrap();
+    assert_eq!(p.instructions()[0], Instruction::Rda { addr: 14, c: 0 });
+    // 5. Exact integer division stays an integer address.
+    let p = assemble("rda 4096/2, 0\n").unwrap();
+    assert_eq!(p.instructions()[0], Instruction::Rda { addr: 2048, c: 0 });
+    // 6. Division by zero is a line-numbered error.
+    let err = assemble("nop\nrda 5/0, 0\n").unwrap_err();
+    assert!(err.to_string().contains("line 2"), "{err}");
+}
