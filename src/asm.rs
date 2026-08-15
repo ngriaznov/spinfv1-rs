@@ -191,7 +191,11 @@ pub fn assemble(source: &str) -> Result<Program, AsmError> {
                     format!("MEM allocation overflows delay memory: {end} exceeds {DELAY_LEN}"),
                 ));
             }
-            mem_end = end;
+            // SPINAsm reserves `size + 1` locations per block — `name` is the
+            // first and `name#` (= start + size) the last, with the next
+            // block starting one word later. Spin's factory programs were
+            // assembled with that layout, so tap spacings depend on it.
+            mem_end = end + 1;
             define_symbol(&mut symtab, &name, Num::Int(start), line, text)?;
             define_symbol(&mut symtab, &format!("{name}#"), Num::Int(end), line, text)?;
             define_symbol(
@@ -1186,8 +1190,8 @@ fn parse_instruction(
                 c: coeff_s1_14(&groups[0], symtab).map_err(&err)?,
                 // SPINAsm manual, LOG: D is entered as Real(S4.6), range
                 // -16 to +15.999998. (The knowledge-base cheat sheet lists
-                // "-1 to +0.999023" for LOG's K2 — a copy of EXP's row —
-                // and reference-impl follows that; the tool manual wins here.)
+                // "-1 to +0.999023" for LOG's K2 — a copy of EXP's row;
+                // the tool manual wins here.)
                 d: coeff_s4_6(&groups[1], symtab).map_err(&err)?,
             })
         }

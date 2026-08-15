@@ -60,16 +60,25 @@ AN-0001 rather than folklore).
 - Investigate the chip's actual LOG/EXP approximation (currently
   double-precision math, at least as accurate as silicon but not proven
   bit-identical).
+- Pot quantization (parked by design): independent implementations
+  model the pot inputs as 10-bit values (floor to 1024 steps). We keep
+  full S.23 pot resolution for now; revisit alongside hardware
+  validation, since pot smoothing/quantization audibly interacts with
+  programs that derive LFO rates from pots.
 
 ## 4. Assembler completeness
 
 The assembler handles every factory program in the corpus, and the
 expression grammar is complete: parentheses, unary `-`/`~`, `**`, `*` `/`,
 `+` `-`, shifts, `&`, `^` (XOR, whitespace-separated; `buf^` stays the
-MEM midpoint suffix), `|`, and exponent-notation reals. Remaining policy
-rather than known gaps: when a third-party program surfaces a construct
-we reject, close it together with that program as a regression test, as
-was done for `-kap`, `1/64` and `sym < 8`.
+MEM midpoint suffix), `|`, and exponent-notation reals. Output has been
+verified bit-identical against an independent SpinASM-compatible
+assembler across the whole corpus (including SPINAsm's `size + 1` MEM
+allocation stride and the RMPA word's ADDR_PTR address field, which
+that independent assembler omits). Remaining policy rather than known
+gaps: when a third-party program surfaces a construct we reject, close
+it together with that program as a regression test, as was done for
+`-kap`, `1/64` and `sym < 8`.
 
 ## 5. Hosting
 

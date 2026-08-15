@@ -298,8 +298,9 @@ fn cho_rda_pair_with_zero_amplitude_is_transparent() {
 }
 
 #[test]
-fn cho_sof_na_produces_crossfade_triangle() {
-    // ACC = ACC_MAX * xfade: a 0 -> 1 -> 0 triangle over the ramp period.
+fn cho_sof_na_produces_crossfade_envelope() {
+    // ACC = ACC_MAX * xfade: a clamped 0 -> 1 -> 0 trapezoid over the ramp
+    // period (flat 0 across the wrap, slope-4 ramps, flat 1.0 in the middle).
     let mut fv1 = vm(&[
         Instruction::Skp {
             cond: SkpCond::RUN,
@@ -323,14 +324,14 @@ fn cho_sof_na_produces_crossfade_triangle() {
     let out = run_mono(&mut fv1, std::iter::repeat_n(0.0, n));
     let peak = out.iter().fold(0.0f32, |m, &v| m.max(v));
     let floor = out[100..].iter().fold(1.0f32, |m, &v| m.min(v));
-    assert!(peak > 0.99, "triangle should reach ~1.0, got {peak}");
-    assert!(floor < 0.01, "triangle should reach ~0.0, got {floor}");
-    // Integer phase arithmetic makes the triangle exactly periodic at the
+    assert!(peak > 0.99, "envelope should reach ~1.0, got {peak}");
+    assert!(floor < 0.01, "envelope should reach ~0.0, got {floor}");
+    // Integer phase arithmetic makes the envelope exactly periodic at the
     // ramp period (8192 samples).
     for i in (0..n - 8192).step_by(999) {
         assert!(
             (out[i] - out[i + 8192]).abs() < 0.01,
-            "triangle not periodic at {i}"
+            "envelope not periodic at {i}"
         );
     }
 }

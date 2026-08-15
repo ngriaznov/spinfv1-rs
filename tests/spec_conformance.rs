@@ -741,7 +741,7 @@ const CASES: &[Case] = &[
     Case {
         variant: "CHO SOF",
         spec: "CHO SOF,N,FLAGS,D: ACC = coeff * ACC + D  (D: S.15); with \
-               NA the coeff is the ramp crossfade envelope",
+               NA the coeff is the ramp crossfade envelope (clamped trapezoid)",
         run: || {
             // Ramp frozen at phase 0: crossfade = 0, so NA|COMPC gives
             // coeff = 1 - 0 and plain NA gives 0.

@@ -611,7 +611,9 @@ fn mem_allocates_sequentially_and_defines_start_end_mid() {
             other => panic!("expected RDA, got {other}"),
         })
         .collect();
-    assert_eq!(addrs, vec![0, 100, 50, 100, 150, 125]);
+    // SPINAsm reserves size + 1 locations per block (name# = start + size
+    // is the last), so B starts one past A#.
+    assert_eq!(addrs, vec![0, 100, 50, 101, 151, 126]);
 }
 
 #[test]

@@ -126,15 +126,18 @@ impl RampLfo {
         self.phase
     }
 
-    /// Cross-fade envelope: a triangle spanning the ramp period, 0 → 1 → 0.
+    /// Cross-fade envelope for `NA`: `clamp(4 * min(p, 1 - p) - 0.5)` over
+    /// the normalized ramp phase — a clamped trapezoid that holds 0 while
+    /// the read pointer crosses the buffer wrap, rises with slope 4, and
+    /// holds 1.0 through the middle of the period. Hardware measurements
+    /// reported for this envelope show the flat-topped shape rather than a
+    /// pure triangle, and the flat zero region is what lets AN-0001's
+    /// pitch shifter mute a pointer for the whole wrap glitch.
     fn crossfade(&self, range_reg: i32) -> i32 {
         let r = Self::range(range_reg);
-        let v = if self.phase > r / 2 {
-            r - self.phase
-        } else {
-            self.phase
-        };
-        v << (2 + Self::amp_shift(range_reg))
+        let tri = self.phase.min(r - self.phase);
+        let v = (tri << (3 + Self::amp_shift(range_reg))) - (crate::fixed::ONE_S23 >> 1);
+        v.clamp(0, ACC_MAX)
     }
 
     /// Resolve a `CHO` access; the coefficient comes from the 10 fractional

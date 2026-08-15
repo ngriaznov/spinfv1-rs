@@ -154,7 +154,7 @@ delay RAM.
    truncation direction, and all skip conditions.
 5. **LFO** (`tests/lfo.rs`): measured oscillator frequency vs. the datasheet
    formula, amplitude scaling, quadrature, ramp periods and direction,
-   crossfade triangle, RPTR2 tap placement, interpolation-pair unity.
+   crossfade envelope, RPTR2 tap placement, interpolation-pair unity.
 6. **Audio end-to-end** (`tests/audio_e2e.rs`): complete effect programs
    verified by signal analysis — sample-exact echoes, a one-pole filter
    matched against a double-precision reference, chorus whose measured
@@ -168,6 +168,14 @@ delay RAM.
    including the shorthand rule, every documented error case pinned to its
    line number, and an assembled echo program run through `Fv1` for a
    sample-exact result.
+8. **Golden vectors** (`tests/golden.rs`): whole-program bit-exactness.
+   A deterministic integer-only test signal streams through datapath
+   micro-programs and the full factory corpus; an FNV-1a hash of every
+   raw output sample is asserted, freezing behavior that was
+   cross-validated instruction by instruction against independent FV-1
+   implementations (bit-identical on every shared-datapath probe:
+   ALU/SOF, register filters, bit ops, SKP/PACC, delay/WRAP/LR,
+   ADDR_PTR/RMPA, ramp phase generation).
 
 ## Benchmarks
 
@@ -211,6 +219,11 @@ close to 80× the chip's real-time rate, and light effects sit well above
   running LFO); `JAM` and program load reset phase.
 - The `CHO ... REG` latch flag is a no-op: LFOs advance between passes, so
   their value is already stable within a pass.
+- The `CHO ... NA` cross-fade is the clamped trapezoid
+  `clamp(4 * min(p, 1 - p) - 0.5)`: flat 0 across the ramp wrap, slope-4
+  ramps, flat 1.0 through the middle. Hardware observations reported for
+  this envelope show the flat-topped shape, and the flat zero is what
+  lets AN-0001's pitch shifter mute a tap for the whole wrap glitch.
 - `LOG`/`EXP` use double-precision math rounded to S.23 — at least as
   accurate as the silicon's piecewise approximation.
 - Delay RAM is 24-bit by default vs. the chip's 14-bit compressed
