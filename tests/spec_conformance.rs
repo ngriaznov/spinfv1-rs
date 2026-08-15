@@ -884,9 +884,9 @@ fn spec_matrix() {
 }
 
 /// The register file itself is part of the spec: 64 addresses, with
-/// ADC/POT inputs refreshed every sample and DAC outputs holding.
-/// Per the SpinASM user manual, pots read "with approximately a 10-bit
-/// resolution" over "0 to +0.99…", so a full-up pot reads 1023/1024.
+/// ADC/POT inputs refreshed every sample and DAC outputs holding. Pot
+/// values are taken as the host provides them (input conditioning is
+/// the host's domain).
 #[test]
 fn register_file_follows_spec() {
     let mut fv1 = Fv1::new();
@@ -894,12 +894,5 @@ fn register_file_follows_spec() {
         spinfv1::Program::from_instructions(&[Instruction::ldax(reg::POT2), OUT]).unwrap();
     fv1.load_program(&program);
     fv1.set_pot(2, 1.0);
-    assert_eq!(
-        fv1.process_raw(0, 0).0,
-        1023 << 13,
-        "full-up pot reads 1023/1024"
-    );
-    // Half scale is exactly representable in 1024 steps.
-    fv1.set_pot(2, 0.5);
-    assert_eq!(fv1.process_raw(0, 0).0, 512 << 13, "half-scale pot");
+    assert_eq!(i64::from(fv1.process_raw(0, 0).0), MAX, "POT full scale");
 }

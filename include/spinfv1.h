@@ -73,11 +73,6 @@ int32_t spinfv1_set_pot(SpinFv1 *handle, uint32_t pot, float value);
  * (enabled != 0; enabled by default). */
 int32_t spinfv1_set_delay_quantization(SpinFv1 *handle, int32_t enabled);
 
-/* Toggle 10-bit pot quantization (enabled != 0; enabled by default,
- * matching the chip's pot ADC resolution). Disable for smooth
- * full-resolution virtual knobs. */
-int32_t spinfv1_set_pot_quantization(SpinFv1 *handle, int32_t enabled);
-
 /* Process one stereo frame (inputs nominally in -1..1). Real-time
  * safe. On error the outputs are written as silence. */
 int32_t spinfv1_process(SpinFv1 *handle, float in_l, float in_r,

@@ -33,10 +33,8 @@ one-sample-per-call API, ready to embed in any real-time host.
   `amp / 4` samples, per AN-0001's amplitude formula
   `Ka = N * 32767 / 16385` and its worked chorus example
   (`Ka = 16384` sweeping ±4096 samples).
-- **I/O**: stereo ADC/DAC registers, three pots read at the chip's
-  documented ~10-bit resolution (full-resolution mode available for
-  smooth virtual knobs), per-sample or block processing, and the
-  512-byte big-endian EEPROM/bank program format.
+- **I/O**: stereo ADC/DAC registers, three pots, per-sample or block
+  processing, and the 512-byte big-endian EEPROM/bank program format.
 
 The chip's native rate is 32,768 Hz (`spinfv1::SAMPLE_RATE`); the
 emulator itself is one-sample-per-call and rate-agnostic. Two ways to
@@ -278,11 +276,10 @@ headroom for oversampling or many simultaneous instances.
   quantization step, giving the compressed format's characteristic
   noise floor. `Fv1::set_delay_quantization(false)` selects pristine
   24-bit storage.
-- Pots quantize to 1024 steps by default (the SpinASM user manual:
-  read "with approximately a 10-bit resolution", ranging "0 to
-  +0.99…"), so a full-up pot reads `1023/1024`.
-  `Fv1::set_pot_quantization(false)` selects full S.23 resolution for
-  smooth virtual knobs.
+- Pot values are taken as the host provides them, at full S.23
+  resolution: input conditioning — the physical pot's taper, the chip
+  ADC's ~10-bit read resolution — is the host's domain, not the
+  emulator's.
 
 ## References
 

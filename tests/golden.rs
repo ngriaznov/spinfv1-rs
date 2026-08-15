@@ -51,7 +51,7 @@ const POTS: [f32; 3] = [0.5, 0.25, 1.0];
 /// (stem, expected hash) — regenerate via SPINFV1_PRINT_HASHES=1.
 const MICRO_HASHES: &[(&str, u64)] = &[
     ("gain_sof", 0xF8AA93EAB84ADECE),
-    ("register_filters", 0x68FCC4190EAE7D79),
+    ("register_filters", 0x5241A7D77DD1EB8E),
     ("log_exp", 0x3FB57C6DB2F873D2),
     ("bitops_skp", 0xD452947D0885CD79),
     ("delay_feedback", 0xAF4C56CE4FF9341E),
@@ -62,18 +62,18 @@ const MICRO_HASHES: &[(&str, u64)] = &[
 ];
 
 const CORPUS_HASHES: &[(&str, u64)] = &[
-    ("GA_DEMO_CHORUS", 0x36C880E1460D5473),
-    ("GA_DEMO_FLANGE", 0x925DDE58058B20BF),
-    ("GA_DEMO_PHASE", 0x4DE484F8B28929B7),
-    ("GA_DEMO_TREM", 0xD934C74AE2F6E8C7),
+    ("GA_DEMO_CHORUS", 0x1DB2FC5298E23D7C),
+    ("GA_DEMO_FLANGE", 0x97E42C59747E625C),
+    ("GA_DEMO_PHASE", 0xAC99605B18B72F14),
+    ("GA_DEMO_TREM", 0x80E9D9857C461636),
     ("octave_down", 0xB5776B2E56260249),
-    ("rom_chor_rev", 0xC6C4FC0BED2BCB35),
-    ("rom_fla_rev", 0xA3B2899F1EF3BE6D),
+    ("rom_chor_rev", 0xE45576DD5A4D29DD),
+    ("rom_fla_rev", 0x49D94ABC05938829),
     ("rom_pitch", 0xDF3DCDD960225FD6),
-    ("rom_pt_echo", 0xCC870DDBB94F965F),
-    ("rom_rev1", 0xA66833DDEA498300),
-    ("rom_rev2", 0x8E5EA2581BBB2C6F),
-    ("rom_trem_rev", 0x5B356B46D30ECB55),
+    ("rom_pt_echo", 0x03ABA7F90AE80284),
+    ("rom_rev1", 0x8F441499B9CFA163),
+    ("rom_rev2", 0x9523BA4CBFC88E4C),
+    ("rom_trem_rev", 0x264794F29E0BA639),
 ];
 
 fn print_mode() -> bool {

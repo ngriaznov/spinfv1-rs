@@ -60,7 +60,6 @@ pub struct Fv1 {
     rmp_lfo: [RampLfo; 2],
     pots: [i32; 3],
     quantize_delay_14bit: bool,
-    quantize_pots_10bit: bool,
 }
 
 impl Fv1 {
@@ -81,7 +80,6 @@ impl Fv1 {
             rmp_lfo: [RampLfo::new(), RampLfo::new()],
             pots: [0; 3],
             quantize_delay_14bit: true,
-            quantize_pots_10bit: true,
         }
     }
 
@@ -108,27 +106,13 @@ impl Fv1 {
 
     /// Set potentiometer `idx` (0..=2) to `value` in `[0.0, 1.0]`.
     ///
-    /// By default the value is quantized to the chip's pot resolution:
-    /// the SpinASM user manual states the pots "can be read with
-    /// approximately a 10-bit resolution" and range "from 0 to +0.99…",
-    /// so the value floors to 1024 steps with a maximum of `1023/1024`.
-    /// [`Self::set_pot_quantization`] disables this for full-resolution
-    /// virtual knobs.
+    /// The value is taken as given at full S.23 resolution: input
+    /// conditioning — the physical pot's taper, the chip ADC's ~10-bit
+    /// resolution — is the host's domain, not the emulator's.
     pub fn set_pot(&mut self, idx: usize, value: f32) {
         if let Some(pot) = self.pots.get_mut(idx) {
-            let value = value.clamp(0.0, 1.0);
-            *pot = if self.quantize_pots_10bit {
-                ((f64::from(value) * 1024.0) as i32).min(1023) << 13
-            } else {
-                f32_to_s23(value)
-            };
+            *pot = f32_to_s23(value.clamp(0.0, 1.0));
         }
-    }
-
-    /// Enable or disable 10-bit pot quantization (enabled by default;
-    /// see [`Self::set_pot`]). Takes effect on the next `set_pot` call.
-    pub fn set_pot_quantization(&mut self, enabled: bool) {
-        self.quantize_pots_10bit = enabled;
     }
 
     /// The real chip stores samples in 14-bit delay RAM using "a compressed

@@ -241,24 +241,6 @@ pub unsafe extern "C" fn spinfv1_set_delay_quantization(handle: *mut SpinFv1, en
     }
 }
 
-/// Toggle 10-bit pot quantization (`enabled` != 0; enabled by default,
-/// matching the chip's pot ADC resolution). Disable for smooth
-/// full-resolution virtual knobs. Takes effect on the next
-/// `spinfv1_set_pot` call.
-///
-/// # Safety
-///
-/// `handle` must be a live handle.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn spinfv1_set_pot_quantization(handle: *mut SpinFv1, enabled: i32) -> i32 {
-    unsafe {
-        with_handle(handle, |h| {
-            h.engine.chip_mut().set_pot_quantization(enabled != 0);
-            SPINFV1_OK
-        })
-    }
-}
-
 /// Process one stereo frame (inputs nominally in -1..=1). Real-time
 /// safe. On error the outputs are written as silence.
 ///
