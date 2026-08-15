@@ -90,8 +90,12 @@ case-insensitive mnemonics/registers/symbols, `;` comments, labels with
 forward references (`SKP` distances are computed automatically), `EQU`
 and `MEM` directives (`MEM` defines `NAME`/`NAME#`/`NAME^` for a buffer's
 start/end/midpoint), decimal/hex (`$3F`, `0x3F`)/binary (`%0101_1100`)/real
-number literals, `NAME+n` offset expressions, and `|`-combined flag values
-(`SKP RUN|ZRC, ...`, `CHO RDA, SIN0, COMPC|REG, ...`). Coefficient operands
+number literals (including exponent notation, `1e-3`), and full constant
+expressions with C-like precedence: parentheses, unary `-`/`~`, `**`
+(power), `*` `/`, `+` `-`, `<`/`<<` `>`/`>>` shifts, `&`, `^` (XOR — when
+separated by whitespace; glued to an identifier, `buf^` is the `MEM`
+midpoint suffix), and `|` flag combining (`SKP RUN|ZRC, ...`,
+`CHO RDA, SIN0, COMPC|REG, ...`). Coefficient operands
 are parsed as real numbers and quantized with round-to-nearest, accepting
 SpinASM's conventional shorthand (`2.0`, `1.0`, `16.0`) for a format's
 largest representable value. Errors ([`AsmError`]) carry the offending
@@ -217,14 +221,9 @@ in [ROADMAP.md](ROADMAP.md).
 
 ## License
 
-MIT
-
-## Contributing
-
-After cloning, point git at the repo's hooks once:
-
-```sh
-git config core.hooksPath .githooks
-```
-
-The hooks sanitize commit messages for every commit and merge.
+Source-available (see [LICENSE](LICENSE)): free to use, modify and
+distribute **within open-source projects and for noncommercial purposes,
+with attribution** to this repository. **Commercial use requires prior
+written permission** from the author. The Spin Semiconductor factory
+programs under `examples/programs/` are third-party material included
+for interoperability testing and remain under their original copyright.

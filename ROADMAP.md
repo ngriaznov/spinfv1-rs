@@ -57,12 +57,13 @@ delay-RAM quantization behavior.
 
 ## 4. Assembler completeness
 
-The assembler handles every factory program in the corpus. Known gaps
-against full SpinASM, to close as real programs need them: parenthesized
-expressions, additional operators (`&`, `^`, `~`), and multi-statement
-edge cases from third-party programs. Each addition should arrive with a
-factory- or community-program regression test, as with `-kap`, `1/64`
-and `sym < 8`.
+The assembler handles every factory program in the corpus, and the
+expression grammar is complete: parentheses, unary `-`/`~`, `**`, `*` `/`,
+`+` `-`, shifts, `&`, `^` (XOR, whitespace-separated; `buf^` stays the
+MEM midpoint suffix), `|`, and exponent-notation reals. Remaining policy
+rather than known gaps: when a third-party program surfaces a construct
+we reject, close it together with that program as a regression test, as
+was done for `-kap`, `1/64` and `sym < 8`.
 
 ## 5. Hosting
 

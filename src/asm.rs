@@ -3,10 +3,12 @@
 //! This implements the subset of the Spin ASM users manual syntax needed to
 //! write real FV-1 programs by hand: mnemonics and pseudo-ops, `EQU` and
 //! `MEM` directives, labels (with forward references for `SKP`), numeric
-//! literals in decimal/hex/binary/real form, `NAME+n`/`NAME#-n`/`NAME^+n`
-//! offset expressions, `|`-combined flag values, and the full predefined
-//! symbol table (register names, `REG0..REG31`, `SIN0..RMP1`, `SKP` and
-//! `CHO` flag names).
+//! literals in decimal/hex/binary/real form (including exponent notation),
+//! `NAME+n`/`NAME#-n`/`NAME^+n` offset expressions, full constant
+//! expressions with C-like precedence (parentheses, unary `-`/`~`, `**`,
+//! `*` `/`, `+` `-`, `<`/`>` shifts, `&`, whitespace-separated `^` XOR,
+//! `|` flag combining), and the full predefined symbol table (register
+//! names, `REG0..REG31`, `SIN0..RMP1`, `SKP` and `CHO` flag names).
 //!
 //! # Coefficient literals
 //!
@@ -345,6 +347,18 @@ impl Num {
         })
     }
 
+    /// `**`: exponentiation. Stays an integer for integer base and small
+    /// non-negative integer exponent; otherwise evaluates as a real.
+    fn pow(self, rhs: Self) -> Result<Self, String> {
+        match (self, rhs) {
+            (Self::Int(a), Self::Int(b)) if (0..=63).contains(&b) => a
+                .checked_pow(b as u32)
+                .map(Self::Int)
+                .ok_or_else(|| "integer overflow in '**'".to_string()),
+            (a, b) => Ok(Self::Real(a.as_f64().powf(b.as_f64()))),
+        }
+    }
+
     fn as_int(self) -> Option<i64> {
         match self {
             Self::Int(n) => Some(n),
@@ -369,12 +383,23 @@ enum Token {
     Plus,
     Minus,
     Star,
+    /// `**`: exponentiation.
+    Pow,
     Slash,
     /// `<` or `<<`: left shift.
     Shl,
     /// `>` or `>>`: right shift.
     Shr,
     Pipe,
+    /// `&`: bitwise AND.
+    Amp,
+    /// `^`: bitwise XOR. Only produced when `^` is *not* glued to the end
+    /// of an identifier (`buf^` is the MEM midpoint suffix; `a ^ b` is XOR).
+    Caret,
+    /// `~`: bitwise complement (24-bit).
+    Tilde,
+    LParen,
+    RParen,
 }
 
 /// Tokenize one already comment-stripped, non-blank source line.
@@ -406,11 +431,36 @@ fn tokenize(s: &str) -> Result<Vec<Token>, String> {
                 i += 1;
             }
             '*' => {
-                out.push(Token::Star);
-                i += 1;
+                if chars.get(i + 1) == Some(&'*') {
+                    out.push(Token::Pow);
+                    i += 2;
+                } else {
+                    out.push(Token::Star);
+                    i += 1;
+                }
             }
             '/' => {
                 out.push(Token::Slash);
+                i += 1;
+            }
+            '&' => {
+                out.push(Token::Amp);
+                i += 1;
+            }
+            '^' => {
+                out.push(Token::Caret);
+                i += 1;
+            }
+            '~' => {
+                out.push(Token::Tilde);
+                i += 1;
+            }
+            '(' => {
+                out.push(Token::LParen);
+                i += 1;
+            }
+            ')' => {
+                out.push(Token::RParen);
                 i += 1;
             }
             '<' => {
@@ -475,8 +525,24 @@ fn tokenize(s: &str) -> Result<Vec<Token>, String> {
                     has_dot |= chars[i] == '.';
                     i += 1;
                 }
+                // Exponent notation: `1e-3`, `1.5E2`.
+                let mut has_exp = false;
+                if matches!(chars.get(i), Some('e' | 'E')) {
+                    let after_sign = if matches!(chars.get(i + 1), Some('+' | '-')) {
+                        i + 2
+                    } else {
+                        i + 1
+                    };
+                    if chars.get(after_sign).is_some_and(char::is_ascii_digit) {
+                        has_exp = true;
+                        i = after_sign + 1;
+                        while i < chars.len() && chars[i].is_ascii_digit() {
+                            i += 1;
+                        }
+                    }
+                }
                 let text: String = chars[start..i].iter().collect();
-                if has_dot {
+                if has_dot || has_exp {
                     let v: f64 = text
                         .parse()
                         .map_err(|_| format!("invalid number `{text}`"))?;
@@ -514,14 +580,19 @@ fn parse_radix(digits: &[char], radix: u32) -> Result<i64, String> {
 // ---------------------------------------------------------------------
 // Expression evaluation, loosest to tightest binding:
 //
-//   expr    := shift  ( '|' shift )*                 (integers only)
+//   expr    := xor    ( '|' xor )*                   (integers only)
+//   xor     := and    ( '^' and )*                   (integers only)
+//   and     := shift  ( '&' shift )*                 (integers only)
 //   shift   := sum    ( ('<' | '>') sum )*           (integers only)
 //   sum     := product( ('+' | '-') product )*
-//   product := unary  ( ('*' | '/') unary )*
-//   unary   := '-' unary | number | symbol
+//   product := power  ( ('*' | '/') power )*
+//   power   := unary  ( '**' power )?                (right-associative)
+//   unary   := ('-' | '~') unary | number | symbol | '(' expr ')'
 //
 // Arithmetic follows SpinASM: values are integers until a real literal or
-// an inexact division makes them real.
+// an inexact division makes them real. Note the `^` disambiguation: glued
+// to an identifier (`buf^`) it is the MEM midpoint suffix; separated by
+// whitespace (`a ^ b`) it is XOR.
 // ---------------------------------------------------------------------
 
 fn eval(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<Num, String> {
@@ -536,24 +607,80 @@ fn eval(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<Num, String> 
     Ok(v)
 }
 
+/// A precedence level's evaluator function.
+type LevelFn = fn(&[Token], &mut usize, &HashMap<String, Num>) -> Result<Num, String>;
+
+/// Shared shape of the integer-only bitwise levels (`|`, `^`, `&`).
+fn eval_bitwise(
+    tokens: &[Token],
+    pos: &mut usize,
+    symtab: &HashMap<String, Num>,
+    op_token: &Token,
+    op_name: char,
+    apply: fn(i64, i64) -> i64,
+    next: LevelFn,
+) -> Result<Num, String> {
+    let mut acc = next(tokens, pos, symtab)?;
+    while tokens.get(*pos) == Some(op_token) {
+        *pos += 1;
+        let rhs = next(tokens, pos, symtab)?;
+        let a = acc
+            .as_int()
+            .ok_or_else(|| format!("cannot combine a real number with '{op_name}'"))?;
+        let b = rhs
+            .as_int()
+            .ok_or_else(|| format!("cannot combine a real number with '{op_name}'"))?;
+        acc = Num::Int(apply(a, b));
+    }
+    Ok(acc)
+}
+
 fn eval_or(
     tokens: &[Token],
     pos: &mut usize,
     symtab: &HashMap<String, Num>,
 ) -> Result<Num, String> {
-    let mut acc = eval_shift(tokens, pos, symtab)?;
-    while tokens.get(*pos) == Some(&Token::Pipe) {
-        *pos += 1;
-        let rhs = eval_shift(tokens, pos, symtab)?;
-        let a = acc
-            .as_int()
-            .ok_or("cannot combine a real number with '|'")?;
-        let b = rhs
-            .as_int()
-            .ok_or("cannot combine a real number with '|'")?;
-        acc = Num::Int(a | b);
-    }
-    Ok(acc)
+    eval_bitwise(
+        tokens,
+        pos,
+        symtab,
+        &Token::Pipe,
+        '|',
+        |a, b| a | b,
+        eval_xor,
+    )
+}
+
+fn eval_xor(
+    tokens: &[Token],
+    pos: &mut usize,
+    symtab: &HashMap<String, Num>,
+) -> Result<Num, String> {
+    eval_bitwise(
+        tokens,
+        pos,
+        symtab,
+        &Token::Caret,
+        '^',
+        |a, b| a ^ b,
+        eval_and,
+    )
+}
+
+fn eval_and(
+    tokens: &[Token],
+    pos: &mut usize,
+    symtab: &HashMap<String, Num>,
+) -> Result<Num, String> {
+    eval_bitwise(
+        tokens,
+        pos,
+        symtab,
+        &Token::Amp,
+        '&',
+        |a, b| a & b,
+        eval_shift,
+    )
 }
 
 fn eval_shift(
@@ -604,7 +731,7 @@ fn eval_product(
     pos: &mut usize,
     symtab: &HashMap<String, Num>,
 ) -> Result<Num, String> {
-    let mut v = eval_unary(tokens, pos, symtab)?;
+    let mut v = eval_power(tokens, pos, symtab)?;
     loop {
         let div = match tokens.get(*pos) {
             Some(Token::Star) => false,
@@ -612,10 +739,26 @@ fn eval_product(
             _ => break,
         };
         *pos += 1;
-        let rhs = eval_unary(tokens, pos, symtab)?;
+        let rhs = eval_power(tokens, pos, symtab)?;
         v = if div { v.div(rhs)? } else { v.mul(rhs) };
     }
     Ok(v)
+}
+
+fn eval_power(
+    tokens: &[Token],
+    pos: &mut usize,
+    symtab: &HashMap<String, Num>,
+) -> Result<Num, String> {
+    let base = eval_unary(tokens, pos, symtab)?;
+    if tokens.get(*pos) == Some(&Token::Pow) {
+        *pos += 1;
+        // Right-associative: 2**2**3 = 2**(2**3).
+        let exp = eval_power(tokens, pos, symtab)?;
+        base.pow(exp)
+    } else {
+        Ok(base)
+    }
 }
 
 fn eval_unary(
@@ -628,6 +771,23 @@ fn eval_unary(
             *pos += 1;
             Ok(eval_unary(tokens, pos, symtab)?.negate())
         }
+        Some(Token::Tilde) => {
+            *pos += 1;
+            let v = eval_unary(tokens, pos, symtab)?;
+            let a = v.as_int().ok_or("cannot complement a real number")?;
+            // 24-bit complement, matching the chip's word width (SpinASM
+            // documents ~ as inverting the 24 mask bits).
+            Ok(Num::Int(!a & 0xFF_FFFF))
+        }
+        Some(Token::LParen) => {
+            *pos += 1;
+            let v = eval_or(tokens, pos, symtab)?;
+            if tokens.get(*pos) != Some(&Token::RParen) {
+                return Err("missing closing ')'".to_string());
+            }
+            *pos += 1;
+            Ok(v)
+        }
         Some(&Token::Number(n)) => {
             *pos += 1;
             Ok(n)
@@ -639,7 +799,7 @@ fn eval_unary(
                 .copied()
                 .ok_or_else(|| format!("unknown symbol `{name}`"))
         }
-        _ => Err("expected a number or symbol".to_string()),
+        _ => Err("expected a number, symbol, or '('".to_string()),
     }
 }
 

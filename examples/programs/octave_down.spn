@@ -1,5 +1,5 @@
-; octave_down.spn — original example program for this emulator (MIT, this
-; repository). Not a Spin Semiconductor program.
+; octave_down.spn — original example program for this emulator (this
+; repository's LICENSE applies). Not a Spin Semiconductor program.
 ;
 ; Dual-tap crossfaded pitch transposer fixed at one octave down: the ramp
 ; rate -8192 gives a pitch ratio of 1 - 8192/16384 = 0.5. Mono sum in,

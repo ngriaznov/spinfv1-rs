@@ -937,3 +937,58 @@ fn expressions_from_spin_factory_programs() {
     let err = assemble("nop\nrda 5/0, 0\n").unwrap_err();
     assert!(err.to_string().contains("line 2"), "{err}");
 }
+
+#[test]
+fn full_expression_grammar() {
+    let one = |src: &str| {
+        assemble(src)
+            .unwrap_or_else(|e| panic!("`{src}` failed: {e}"))
+            .instructions()[0]
+    };
+    // Parentheses override precedence.
+    assert_eq!(
+        one("rda (100+2)*3, 0\n"),
+        Instruction::Rda { addr: 306, c: 0 }
+    );
+    // Bitwise & | ^ with correct relative precedence (| loosest).
+    assert_eq!(one("or $f0 & $3c | $01\n"), Instruction::Or { mask: 0x31 });
+    assert_eq!(one("or $ff ^ $0f\n"), Instruction::Or { mask: 0xF0 });
+    // ~ is a 24-bit complement.
+    assert_eq!(one("and ~$ff\n"), Instruction::And { mask: 0xFF_FF00 });
+    // ^ glued to an identifier is still the MEM midpoint suffix.
+    assert_eq!(
+        one("mem buf 100\nrda buf^ + 1, 0\n"),
+        Instruction::Rda { addr: 51, c: 0 }
+    );
+    // ...while a spaced ^ between values is XOR.
+    assert_eq!(
+        one("equ a $0f\nequ b $ff\nor a ^ b\n"),
+        Instruction::Or { mask: 0xF0 }
+    );
+    // Exponent-notation reals.
+    assert_eq!(
+        one("rdax reg0, 1e-3\n"),
+        Instruction::Rdax {
+            reg: reg::user(0),
+            c: coeff::s1_14(0.001)
+        }
+    );
+    assert_eq!(
+        one("rdax reg0, 1.5E-2\n"),
+        Instruction::Rdax {
+            reg: reg::user(0),
+            c: coeff::s1_14(0.015)
+        }
+    );
+    // Power operator, right-associative, integer-exact.
+    assert_eq!(one("rda 2**10, 0\n"), Instruction::Rda { addr: 1024, c: 0 });
+    assert_eq!(
+        one("rda 2**2**3, 0\n"),
+        Instruction::Rda { addr: 256, c: 0 }
+    );
+    // Errors carry line numbers.
+    let err = assemble("nop\nrda (5, 0\n").unwrap_err();
+    assert!(err.to_string().contains("line 2"), "{err}");
+    let err = assemble("or 0.5 & 1\n").unwrap_err();
+    assert!(err.to_string().contains("real"), "{err}");
+}

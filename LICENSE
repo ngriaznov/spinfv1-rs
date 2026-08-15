@@ -1,21 +1,61 @@
-MIT License
+spinfv1 Source-Available License
+Version 1.0
 
 Copyright (c) 2026 ngriaznov
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Definitions
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+   "Software" means this repository's source code, documentation, and
+   example programs authored by the copyright holder, and derivative
+   works thereof. (Files under examples/programs/ that are marked as
+   Spin Semiconductor factory programs are third-party material included
+   for interoperability testing; their copyright remains with their
+   original authors and they are not licensed by this document.)
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+   "Open-Source Project" means a software project whose complete source
+   code is publicly available under a license approved by the Open
+   Source Initiative or a substantially similar publicly documented
+   license.
+
+   "Commercial Use" means any use of the Software intended for, or
+   directed toward, commercial advantage or monetary compensation,
+   including selling, licensing for a fee, offering paid services built
+   on the Software, or distributing it as part of a paid or proprietary
+   product (including paid audio plugins and hardware products).
+
+2. Grant for open-source and noncommercial use
+
+   Permission is granted, free of charge, to use, copy, modify, and
+   distribute the Software:
+
+   a. as part of, or as a dependency of, an Open-Source Project; and
+   b. for personal, educational, research, and other noncommercial
+      purposes;
+
+   provided that each copy or substantial portion, and the
+   documentation of any project incorporating it, retains this license
+   text and a clear attribution naming "spinfv1" and linking to
+   https://github.com/ngriaznov/spinfv1-rs.
+
+3. Commercial use
+
+   Any Commercial Use of the Software outside the grant in Section 2
+   requires prior written permission from the copyright holder. Contact
+   the copyright holder via the repository above to obtain a commercial
+   license.
+
+4. No trademark rights
+
+   This license grants no rights to use the names or trademarks of the
+   copyright holder or of Spin Semiconductor.
+
+5. Warranty disclaimer
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+   BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+   ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
