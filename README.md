@@ -27,8 +27,10 @@ ready to embed in any real-time host.
   and both RMP LFOs (22-bit phase, `rate/16` per sample), with live
   register-driven rate/range (pot-controlled modulation works), `JAM`,
   and the full `CHO` flag set — `COS`, `REG`, `COMPC`, `COMPA`, `RPTR2`,
-  `NA` — with the 8-bit (SIN) / 10-bit (RMP) interpolation fractions,
-  matching LFO behavior that has been validated against real chips.
+  `NA` — with the 11-bit (SIN) / 10-bit (RMP) interpolation fractions.
+  SIN address excursion is `amp / 8` samples (±4096 at full scale),
+  anchored to the excursions Spin's own factory programs document in
+  their comments.
 - **I/O**: stereo ADC/DAC registers, three pots, per-sample or block
   processing, and the 512-byte big-endian EEPROM/bank program format.
 

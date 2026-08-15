@@ -171,9 +171,13 @@ fn chorus_delay_tracks_the_sine_lfo() {
     // Feed a linear ramp; an interpolated modulated tap of a linear signal
     // recovers the instantaneous delay exactly, so we can verify the CHO
     // interpolation path end to end.
+    //
+    // The amplitude here is the case Spin's rom_rev1 documents in a comment:
+    // `wlds sin0, 12, 160` is "0.5Hz, +/-20 samples", i.e. the SIN LFO
+    // address excursion is amp/8 (±4096 at the full-scale amp of 32767).
     let base = 1000u16;
-    let amp = 256u16;
-    let rate = 80u16;
+    let amp = 160u16;
+    let rate = 80u16; // faster than rom_rev1's 12 so the test stays short
     let mut fv1 = vm(&[
         Instruction::Skp {
             cond: SkpCond::RUN,
@@ -221,11 +225,12 @@ fn chorus_delay_tracks_the_sine_lfo() {
         (mean - f64::from(base)).abs() < 3.0,
         "mean modulated delay {mean}, expected ~{base}"
     );
-    // Excursion = LFO amplitude in samples.
+    // Excursion = amp/8 samples: ±20 for amp 160, per Spin's own comment.
+    let expected_excursion = f64::from(amp) / 8.0;
     let excursion = (max - min) / 2.0;
     assert!(
-        (excursion - f64::from(amp)).abs() < f64::from(amp) * 0.03,
-        "delay excursion {excursion}, expected ~{amp}"
+        (excursion - expected_excursion).abs() < expected_excursion * 0.03,
+        "delay excursion {excursion}, expected ~{expected_excursion}"
     );
     // Modulation period matches the LFO formula 2*pi*2^17/rate.
     let centered: Vec<f32> = delays.iter().map(|&d| (d - mean) as f32).collect();

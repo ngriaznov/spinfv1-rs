@@ -47,8 +47,7 @@ impl SinLfo {
         self.sin = (i64::from(self.sin) - mul_s23(i64::from(self.cos), coeff)) as i32;
     }
 
-    /// Range-scaled output. With amplitude `A` (register = `A << 8`), the
-    /// value swings ±`A << 8` raw, i.e. ±`A` delay samples after `>> 8`.
+    /// Range-scaled output as read by `CHO RDAL` (raw S.23).
     pub fn value(&self, range_reg: i32, cos: bool) -> i32 {
         mul_s23(
             i64::from(if cos { self.cos } else { self.sin }),
@@ -57,10 +56,17 @@ impl SinLfo {
     }
 
     /// Resolve a `CHO` access: address offset plus interpolation coefficient
-    /// from the 8 fractional bits below the sample offset.
+    /// from the 11 fractional bits below the sample offset.
+    ///
+    /// A full-scale amplitude (32767) swings the address ±4096 samples — the
+    /// same maximum as the RMP LFO window — so the excursion in delay samples
+    /// is `amp / 8`. Spin's own programs pin this down: `rom_rev1` comments
+    /// `wlds sin0, 12, 160` as "0.5Hz, +/-20 samples", and the demo chorus
+    /// sweeps `amp = 100` taps placed 100 samples into their buffer, which
+    /// only stays inside the buffer with a ±12.5-sample excursion.
     pub fn cho(&self, range_reg: i32, flags: ChoFlags) -> ChoValue {
         let v = self.value(range_reg, flags.contains(ChoFlags::COS));
-        let mut coeff = (v & 0xFF) << 15;
+        let mut coeff = (v & 0x7FF) << 12;
         let v = if flags.contains(ChoFlags::COMPA) {
             -v
         } else {
@@ -70,7 +76,7 @@ impl SinLfo {
             coeff = ACC_MAX - coeff;
         }
         ChoValue {
-            offset: v >> 8,
+            offset: v >> 11,
             coeff,
         }
     }
