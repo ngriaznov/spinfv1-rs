@@ -6,8 +6,8 @@ capabilities and test coverage are documented in the README.
 
 ## 1. Sample-rate options
 
-- **"Crystal swap" in VCV**: expose running the VM directly at a chosen
-  rate as a continuous "clock" control in the VCV module — smooth
+- **"Crystal swap" as a control**: expose running the VM directly at a
+  chosen rate as a continuous "clock" parameter in a host — smooth
   crystal-swap is something real hardware can't do.
 - **Time-compensated native-rate mode — rejected.** Rescaling time
   constants at the host rate can only ever be approximate: one-pole
@@ -28,11 +28,6 @@ capabilities and test coverage are documented in the README.
   user manual's "approximately a 10-bit resolution"); we keep full S.23 pot
   resolution for now, which also suits smooth virtual knobs.
 
-## 3. Hosting
+## 3. Publication
 
-- VCV Rack module — separate repository; consumes this crate's C API
-  (`ffi` feature, `include/spinfv1.h`) unchanged. Uses boundary
-  resampling by default, crystal-swap as a "clock" control; rebuild the
-  handle on `onSampleRateChange`.
-- Publish to crates.io once the API has settled (after the VCV module
-  proves it out).
+- Publish to crates.io once the API has settled.

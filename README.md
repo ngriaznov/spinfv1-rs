@@ -283,7 +283,7 @@ user manual, and *AN-0001: Basics of the LFOs in the FV-1*.
 
 ## Roadmap
 
-Future work — the VCV Rack module, remaining emulation-fidelity
+Future work — sample-rate controls, remaining emulation-fidelity
 decisions, and crates.io publication — is documented in
 [ROADMAP.md](ROADMAP.md).
 
