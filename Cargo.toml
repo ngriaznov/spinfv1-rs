@@ -14,6 +14,9 @@ default = ["std"]
 # Use the host's libm via std's f64 methods (log2/exp2/round). Enabled by
 # default; disable with `--no-default-features` for a `no_std` build.
 std = []
+# Boundary resampling: run the chip at its native 32,768 Hz inside any
+# host rate (windowed-sinc polyphase converter + HostedFv1 wrapper).
+resampler = ["std"]
 # Pure-Rust libm implementations of the same operations, for `no_std`
 # targets: build with `--no-default-features --features libm`.
 libm = ["dep:libm"]

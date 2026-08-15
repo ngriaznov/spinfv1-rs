@@ -38,7 +38,19 @@ ready to embed in any real-time host.
 Zero runtime dependencies with the default `std` feature (an optional `libm`
 feature trades that for `no_std` support; see below). The chip's native rate
 is 32,768 Hz (`spinfv1::SAMPLE_RATE`); the emulator itself is
-one-sample-per-call and rate-agnostic.
+one-sample-per-call and rate-agnostic. Two ways to host it at another rate,
+both officially grounded in chip behavior:
+
+- **Boundary resampling** (opt-in `resampler` feature): keep the chip at
+  32,768 Hz and convert at the edges, so delays, LFO rates and filter
+  cutoffs are exactly as on hardware. `resampler::HostedFv1` wraps an
+  `Fv1` behind a streaming windowed-sinc polyphase converter — one call
+  per host sample, reported fixed latency, real-time safe after
+  construction.
+- **"Crystal swap"**: just call `process()` at the host rate. Everything
+  time-based scales, exactly as the datasheet describes for an applied
+  external clock ("the sample rate of the system will be at this applied
+  rate").
 
 ## Usage
 

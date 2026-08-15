@@ -75,6 +75,8 @@ mod instruction;
 mod lfo;
 mod math;
 mod program;
+#[cfg(feature = "resampler")]
+pub mod resampler;
 mod vm;
 
 #[cfg(feature = "std")]

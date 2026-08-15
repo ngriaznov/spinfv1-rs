@@ -6,16 +6,9 @@ capabilities and test coverage are documented in the README.
 
 ## 1. Sample-rate options
 
-- **Resampler module**: promote the example resampler
-  (`examples/support`) into an optional crate module (e.g. a `resampler`
-  feature) with a proper windowed-sinc polyphase kernel, so hosts get
-  boundary resampling around the 32,768 Hz chip rate turnkey instead of
-  hand-rolling it.
-- **"Crystal swap" mode**: document running the VM directly at the host
-  rate as a supported mode (per the datasheet, the sample rate follows
-  the applied clock), and expose it in the VCV module as a continuous
-  "clock" control — smooth crystal-swap is something real hardware
-  can't do.
+- **"Crystal swap" in VCV**: expose running the VM directly at a chosen
+  rate as a continuous "clock" control in the VCV module — smooth
+  crystal-swap is something real hardware can't do.
 - **Time-compensated native-rate mode — rejected.** Rescaling time
   constants at the host rate can only ever be approximate: one-pole
   filter coefficients (`RDFX`/`WRLX`) are baked into program words as
