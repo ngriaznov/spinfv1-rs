@@ -274,18 +274,22 @@ close to 80× the chip's real-time rate, and light effects sit well above
   authentic noise floor (the exact mantissa/exponent split is
   undocumented, so the model keeps 10 significant bits across a
   level-scaled quantization step).
+- Pots are read at full S.23 resolution, where the chip's ADC reads
+  "approximately a 10-bit resolution" (SpinASM user manual) — full
+  resolution suits smooth virtual knobs and avoids zipper steps.
+- There is deliberately no time-compensated native-rate mode (rescaling
+  delay/LFO time constants while running at the host rate): one-pole
+  filter coefficients (`RDFX`/`WRLX`) are per-sample constants baked
+  into program words and cannot be rescaled without changing what the
+  program computes, and interpolated delay reads add coloration inside
+  reverb feedback loops. Use boundary resampling or crystal-swap
+  instead.
 
 ## References
 
 This is an original, from-scratch implementation based on Spin
 Semiconductor's public documentation: the FV-1 datasheet, the SpinASM
 user manual, and *AN-0001: Basics of the LFOs in the FV-1*.
-
-## Roadmap
-
-Future work — sample-rate controls, remaining emulation-fidelity
-decisions, and crates.io publication — is documented in
-[ROADMAP.md](ROADMAP.md).
 
 ## License
 
