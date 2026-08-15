@@ -54,10 +54,9 @@
 //! * Delay RAM keeps full 24-bit precision by default; the real chip stores
 //!   a 14-bit compressed floating-point word. Call
 //!   [`Fv1::set_delay_quantization`] to model that.
-//! * `LOG`/`EXP` are computed in double precision and rounded to S.23, which
-//!   is at least as accurate as the chip's internal approximation — using
-//!   in-crate deterministic arithmetic, so results are bit-identical on
-//!   every platform and in every build configuration.
+//! * `LOG`/`EXP` are computed in double precision and rounded to S.23,
+//!   using in-crate deterministic arithmetic — results are bit-identical
+//!   on every platform and in every build configuration.
 //!
 //! ## `no_std`
 //!

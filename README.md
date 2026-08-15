@@ -261,21 +261,20 @@ headroom for oversampling or many simultaneous instances.
   their value is already stable within a pass.
 - The `CHO ... NA` cross-fade is the clamped trapezoid
   `clamp(4 * min(p, 1 - p) - 0.5)`: flat 0 across the ramp wrap, slope-4
-  ramps, flat 1.0 through the middle. Hardware observations reported for
-  this envelope show the flat-topped shape, and the flat zero is what
-  lets AN-0001's pitch shifter mute a tap for the whole wrap glitch.
-- `LOG`/`EXP` use double-precision math rounded to S.23 — at least as
-  accurate as the silicon's piecewise approximation, and computed by
-  in-crate deterministic arithmetic so results are bit-identical on
-  every platform. Their behavior is pinned bit-for-bit by an
-  exact-value table (`tests/log_exp_values.rs`) cross-validated against
-  an independent implementation.
+  ramps, flat 1.0 through the middle — the flat-topped shape reported
+  from hardware, whose zero region mutes a pitch-shifter tap for the
+  whole wrap glitch.
+- `LOG`/`EXP` are computed in double precision by in-crate
+  deterministic arithmetic, so results are bit-identical on every
+  platform, and are pinned to an exact-value table
+  (`tests/log_exp_values.rs`) cross-validated against an independent
+  implementation.
 - Delay writes model the chip's 14-bit compressed floating-point RAM
-  word by default: the exact mantissa/exponent split is undocumented,
-  so the model keeps 10 significant bits across a level-scaled
-  quantization step, giving the compressed format's characteristic
-  noise floor. `Fv1::set_delay_quantization(false)` selects pristine
-  24-bit storage.
+  word by default — sign plus 10 significant magnitude bits over a
+  level-scaled quantization step, giving the compressed format's
+  characteristic noise floor (the datasheet specifies the format, not
+  its bit layout). `Fv1::set_delay_quantization(false)` selects
+  pristine 24-bit storage.
 - Pot values are taken as the host provides them, at full S.23
   resolution: input conditioning — the physical pot's taper, the chip
   ADC's ~10-bit read resolution — is the host's domain, not the
