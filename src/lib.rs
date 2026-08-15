@@ -70,6 +70,8 @@ extern crate alloc;
 
 #[cfg(feature = "std")]
 pub mod asm;
+#[cfg(feature = "ffi")]
+pub mod ffi;
 pub mod fixed;
 mod instruction;
 mod lfo;

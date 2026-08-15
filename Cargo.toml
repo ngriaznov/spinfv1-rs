@@ -17,6 +17,10 @@ std = []
 # Boundary resampling: run the chip at its native 32,768 Hz inside any
 # host rate (windowed-sinc polyphase converter + HostedFv1 wrapper).
 resampler = ["std"]
+# C ABI for non-Rust hosts (VCV Rack, JUCE): opaque handle, panic-safe
+# boundary. Build the archive with:
+#   cargo rustc --release --features ffi --crate-type staticlib
+ffi = ["std", "resampler"]
 # Pure-Rust libm implementations of the same operations, for `no_std`
 # targets: build with `--no-default-features --features libm`.
 libm = ["dep:libm"]

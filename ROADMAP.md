@@ -46,8 +46,9 @@ done for `-kap`, `1/64` and `sym < 8`.
 
 ## 5. Hosting
 
-- VCV Rack module — separate repository; consumes this crate unchanged.
-  Uses boundary resampling by default, crystal-swap as a "clock"
-  control.
+- VCV Rack module — separate repository; consumes this crate's C API
+  (`ffi` feature, `include/spinfv1.h`) unchanged. Uses boundary
+  resampling by default, crystal-swap as a "clock" control; rebuild the
+  handle on `onSampleRateChange`.
 - Publish to crates.io once the API has settled (after the VCV module
   proves it out).
