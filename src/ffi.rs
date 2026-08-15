@@ -224,8 +224,9 @@ pub unsafe extern "C" fn spinfv1_set_pot(handle: *mut SpinFv1, pot: u32, value: 
     }
 }
 
-/// Model the chip's 14-bit compressed floating-point delay RAM
-/// (`enabled` != 0) instead of the default full-precision storage.
+/// Toggle the chip's 14-bit compressed floating-point delay RAM model
+/// (`enabled` != 0; enabled by default). Disable for pristine
+/// full-precision delay storage.
 ///
 /// # Safety
 ///
@@ -235,6 +236,24 @@ pub unsafe extern "C" fn spinfv1_set_delay_quantization(handle: *mut SpinFv1, en
     unsafe {
         with_handle(handle, |h| {
             h.engine.chip_mut().set_delay_quantization(enabled != 0);
+            SPINFV1_OK
+        })
+    }
+}
+
+/// Toggle 10-bit pot quantization (`enabled` != 0; enabled by default,
+/// matching the chip's pot ADC resolution). Disable for smooth
+/// full-resolution virtual knobs. Takes effect on the next
+/// `spinfv1_set_pot` call.
+///
+/// # Safety
+///
+/// `handle` must be a live handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn spinfv1_set_pot_quantization(handle: *mut SpinFv1, enabled: i32) -> i32 {
+    unsafe {
+        with_handle(handle, |h| {
+            h.engine.chip_mut().set_pot_quantization(enabled != 0);
             SPINFV1_OK
         })
     }

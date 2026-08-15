@@ -908,6 +908,7 @@ fn assembled_echo_program_produces_a_sample_exact_delay() {
     ";
     let program = assemble(source).unwrap();
     let mut fv1 = Fv1::new();
+    fv1.set_delay_quantization(false); // sample-exact echo check
     fv1.load_program(&program);
 
     let impulse = 1_000_000;
@@ -932,6 +933,7 @@ fn assembled_feedback_echo_decays_geometrically() {
     );
     let program = assemble(&source).unwrap();
     let mut fv1 = Fv1::new();
+    fv1.set_delay_quantization(false); // exact geometric halving check
     fv1.load_program(&program);
     fv1.set_pot(0, 0.5);
 

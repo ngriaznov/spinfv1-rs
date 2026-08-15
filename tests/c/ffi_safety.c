@@ -116,6 +116,7 @@ static int heap_block_buffers(void) {
     CHECK(h != NULL);
     CHECK(spinfv1_load_asm(h, ECHO) == SPINFV1_OK);
     CHECK(spinfv1_set_delay_quantization(h, 1) == SPINFV1_OK);
+    CHECK(spinfv1_set_pot_quantization(h, 0) == SPINFV1_OK);
 
     /* Exactly-sized heap buffers so ASan catches any off-by-one. */
     size_t frames = 4096;

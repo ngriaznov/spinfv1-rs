@@ -7,9 +7,15 @@
 use spinfv1::{Fv1, Instruction, Program};
 
 /// Build a VM with the given instructions loaded (padded with NOP).
+///
+/// Storage/input quantization is disabled so datapath tests compare
+/// against exact fixed-point expectations; the chip-faithful defaults
+/// are exercised by the golden-vector and WAV suites.
 pub fn vm(instructions: &[Instruction]) -> Fv1 {
     let program = Program::from_instructions(instructions).expect("test program fits in 128 slots");
     let mut fv1 = Fv1::new();
+    fv1.set_delay_quantization(false);
+    fv1.set_pot_quantization(false);
     fv1.load_program(&program);
     fv1
 }

@@ -425,6 +425,7 @@ fn bank_bytes_roundtrip_and_run() {
     assert_eq!(restored, source);
 
     let mut fv1 = Fv1::new();
+    fv1.set_delay_quantization(false); // sample-exact echo check
     fv1.load_program(&restored);
     for n in 0..100u32 {
         let out = fv1.process_raw(if n == 0 { 1_000_000 } else { 0 }, 0).0;

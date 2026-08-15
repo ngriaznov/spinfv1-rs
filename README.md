@@ -21,8 +21,9 @@ one-sample-per-call API, ready to embed in any real-time host.
   `WRLX` and `SKP ZRC` depend on.
 - **Delay RAM**: 32768 samples with the decrementing base pointer, `LR`
   last-read register, and `ADDR_PTR` indirect addressing for `RMPA`.
-  Full 24-bit storage by default; optionally model the chip's 14-bit
-  compressed floating-point RAM word (`Fv1::set_delay_quantization`).
+  Models the chip's 14-bit compressed floating-point RAM word by
+  default; `Fv1::set_delay_quantization(false)` selects pristine
+  24-bit storage instead.
 - **LFOs**: both SIN LFOs (magic-circle oscillator, `rate/2^17` rad/sample)
   and both RMP LFOs (22-bit phase, `rate/16` per sample), with live
   register-driven rate/range (pot-controlled modulation works), `JAM`,
@@ -32,8 +33,10 @@ one-sample-per-call API, ready to embed in any real-time host.
   `amp / 4` samples, per AN-0001's amplitude formula
   `Ka = N * 32767 / 16385` and its worked chorus example
   (`Ka = 16384` sweeping ±4096 samples).
-- **I/O**: stereo ADC/DAC registers, three pots, per-sample or block
-  processing, and the 512-byte big-endian EEPROM/bank program format.
+- **I/O**: stereo ADC/DAC registers, three pots read at the chip's
+  documented ~10-bit resolution (full-resolution mode available for
+  smooth virtual knobs), per-sample or block processing, and the
+  512-byte big-endian EEPROM/bank program format.
 
 The chip's native rate is 32,768 Hz (`spinfv1::SAMPLE_RATE`); the
 emulator itself is one-sample-per-call and rate-agnostic. Two ways to
@@ -239,19 +242,19 @@ Sample results from an actual run on this machine (4-core Intel Xeon @
 ```
 program                             samples/sec   vs real-time             checksum
 -----------------------------------------------------------------------------------
-all-NOP (dispatch floor)                4154470           127x                    0
-passthrough                             4116755           126x     8583606845757203
-feedback echo                           4005817           122x     4289439265781251
-sine-LFO chorus (CHO RDA pair)          4029811           123x     4289185750015631
-dual-tap RMP pitch shifter              3697425           113x     4288279044024075
-dense 128-op (every opcode)             2573797            79x     4291750378700635
+all-NOP (dispatch floor)                1954007            60x                    0
+passthrough                             1984521            61x     8583606845757203
+feedback echo                           1969530            60x     4289396314996096
+sine-LFO chorus (CHO RDA pair)          1989678            61x     4287386409299783
+dual-tap RMP pitch shifter              1961116            60x     4288674850505555
+dense 128-op (every opcode)             1937335            59x     4292046731490840
 ```
 
 Even the densest 128-instruction program that touches every opcode runs at
-close to 80× the chip's real-time rate, and light effects sit well above
-100×, leaving headroom for oversampling or many simultaneous instances.
+roughly 60× the chip's real-time rate on this modest machine, leaving
+headroom for oversampling or many simultaneous instances.
 
-## Fidelity notes & divergences
+## Fidelity notes
 
 - `WLDS`/`WLDR` load the LFO registers but do **not** reset oscillator
   phase (matching observed hardware behavior where pots can retune a
@@ -269,14 +272,17 @@ close to 80× the chip's real-time rate, and light effects sit well above
   every platform. Their behavior is pinned bit-for-bit by an
   exact-value table (`tests/log_exp_values.rs`) cross-validated against
   an independent implementation.
-- Delay RAM is 24-bit by default vs. the chip's 14-bit compressed
-  floating-point word; opt into the compressed-float model for an
-  authentic noise floor (the exact mantissa/exponent split is
-  undocumented, so the model keeps 10 significant bits across a
-  level-scaled quantization step).
-- Pots are read at full S.23 resolution, where the chip's ADC reads
-  "approximately a 10-bit resolution" (SpinASM user manual) — full
-  resolution suits smooth virtual knobs and avoids zipper steps.
+- Delay writes model the chip's 14-bit compressed floating-point RAM
+  word by default: the exact mantissa/exponent split is undocumented,
+  so the model keeps 10 significant bits across a level-scaled
+  quantization step, giving the compressed format's characteristic
+  noise floor. `Fv1::set_delay_quantization(false)` selects pristine
+  24-bit storage.
+- Pots quantize to 1024 steps by default (the SpinASM user manual:
+  read "with approximately a 10-bit resolution", ranging "0 to
+  +0.99…"), so a full-up pot reads `1023/1024`.
+  `Fv1::set_pot_quantization(false)` selects full S.23 resolution for
+  smooth virtual knobs.
 
 ## References
 

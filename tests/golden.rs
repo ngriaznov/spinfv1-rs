@@ -51,29 +51,29 @@ const POTS: [f32; 3] = [0.5, 0.25, 1.0];
 /// (stem, expected hash) — regenerate via SPINFV1_PRINT_HASHES=1.
 const MICRO_HASHES: &[(&str, u64)] = &[
     ("gain_sof", 0xF8AA93EAB84ADECE),
-    ("register_filters", 0x5241A7D77DD1EB8E),
+    ("register_filters", 0x68FCC4190EAE7D79),
     ("log_exp", 0x3FB57C6DB2F873D2),
     ("bitops_skp", 0xD452947D0885CD79),
-    ("delay_feedback", 0xA3FA97E4C0203EC5),
-    ("addr_ptr", 0xF851EFC298546FBC),
-    ("sin_chorus", 0xFD9871871FBE3F08),
-    ("rmp_pitch", 0x488A46F9D9D02346),
+    ("delay_feedback", 0xAF4C56CE4FF9341E),
+    ("addr_ptr", 0x31BEA9FC99EB0605),
+    ("sin_chorus", 0x605A302D12E67411),
+    ("rmp_pitch", 0xEF34FF6A78CB7C19),
     ("cho_sof_live_rate", 0xDAFA2C37F0208609),
 ];
 
 const CORPUS_HASHES: &[(&str, u64)] = &[
-    ("GA_DEMO_CHORUS", 0xAEB560EADC467A88),
-    ("GA_DEMO_FLANGE", 0xD05145A17B0D3C79),
-    ("GA_DEMO_PHASE", 0xA7BB5E686A0F0521),
-    ("GA_DEMO_TREM", 0x707A45D6CB7DA099),
-    ("octave_down", 0x284427521F59E9DD),
-    ("rom_chor_rev", 0x3010EA5EE3C9EAD1),
-    ("rom_fla_rev", 0xE7BB3CC40F68D1A5),
-    ("rom_pitch", 0xCB5648095DF5C4A0),
-    ("rom_pt_echo", 0xBF758A2015F62F55),
-    ("rom_rev1", 0x035A547A7A7E6F64),
-    ("rom_rev2", 0xAE1314567F67BFA8),
-    ("rom_trem_rev", 0x8EF678B3FB0B32B1),
+    ("GA_DEMO_CHORUS", 0x36C880E1460D5473),
+    ("GA_DEMO_FLANGE", 0x925DDE58058B20BF),
+    ("GA_DEMO_PHASE", 0x4DE484F8B28929B7),
+    ("GA_DEMO_TREM", 0xD934C74AE2F6E8C7),
+    ("octave_down", 0xB5776B2E56260249),
+    ("rom_chor_rev", 0xC6C4FC0BED2BCB35),
+    ("rom_fla_rev", 0xA3B2899F1EF3BE6D),
+    ("rom_pitch", 0xDF3DCDD960225FD6),
+    ("rom_pt_echo", 0xCC870DDBB94F965F),
+    ("rom_rev1", 0xA66833DDEA498300),
+    ("rom_rev2", 0x8E5EA2581BBB2C6F),
+    ("rom_trem_rev", 0x5B356B46D30ECB55),
 ];
 
 fn print_mode() -> bool {

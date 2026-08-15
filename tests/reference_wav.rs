@@ -67,9 +67,18 @@ fn data_dir() -> std::path::PathBuf {
 }
 
 /// Run `source` over the golden signal, returning raw S.23 frames.
-fn run_program(source: &str) -> Vec<(i32, i32)> {
+///
+/// `reference_mode` disables storage/input quantization to match the
+/// conditions the external reference captures were made under
+/// (full-precision delay, unquantized pots); the corpus tier runs the
+/// chip-faithful defaults.
+fn run_program(source: &str, reference_mode: bool) -> Vec<(i32, i32)> {
     let program = assemble(source).expect("program must assemble");
     let mut fv1 = Fv1::new();
+    if reference_mode {
+        fv1.set_delay_quantization(false);
+        fv1.set_pot_quantization(false);
+    }
     fv1.load_program(&program);
     fv1.set_pot(0, 0.5);
     fv1.set_pot(1, 0.25);
@@ -157,7 +166,7 @@ fn outputs_bit_match_reference_captures() {
             .expect("captured program must be in MICRO")
             .1;
         let expected = read_wav_s23(&data_dir().join(format!("{stem}.wav")));
-        let got = run_program(source);
+        let got = run_program(source, true);
         compare(stem, &got[..expected.len().min(got.len())], &expected);
     }
 }
@@ -173,7 +182,7 @@ fn corpus_outputs_bit_match_committed_wavs() {
     for stem in CORPUS {
         let source = std::fs::read_to_string(programs.join(format!("{stem}.spn")))
             .unwrap_or_else(|e| panic!("{stem}: {e}"));
-        let got = run_program(&source);
+        let got = run_program(&source, false);
         let wav = corpus_dir.join(format!("{stem}.wav"));
         if write_mode {
             write_wav_s23(&wav, &got);

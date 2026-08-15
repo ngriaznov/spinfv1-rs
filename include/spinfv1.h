@@ -69,9 +69,14 @@ const char *spinfv1_last_error(const SpinFv1 *handle);
 /* Set pot 0..=2 to value (clamped to 0..=1). Real-time safe. */
 int32_t spinfv1_set_pot(SpinFv1 *handle, uint32_t pot, float value);
 
-/* Model the chip's 14-bit compressed floating-point delay RAM
- * (enabled != 0) instead of the default full-precision storage. */
+/* Toggle the chip's 14-bit compressed floating-point delay RAM model
+ * (enabled != 0; enabled by default). */
 int32_t spinfv1_set_delay_quantization(SpinFv1 *handle, int32_t enabled);
+
+/* Toggle 10-bit pot quantization (enabled != 0; enabled by default,
+ * matching the chip's pot ADC resolution). Disable for smooth
+ * full-resolution virtual knobs. */
+int32_t spinfv1_set_pot_quantization(SpinFv1 *handle, int32_t enabled);
 
 /* Process one stereo frame (inputs nominally in -1..1). Real-time
  * safe. On error the outputs are written as silence. */
