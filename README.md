@@ -168,14 +168,20 @@ delay RAM.
    including the shorthand rule, every documented error case pinned to its
    line number, and an assembled echo program run through `Fv1` for a
    sample-exact result.
-8. **Golden vectors** (`tests/golden.rs`): whole-program bit-exactness.
-   A deterministic integer-only test signal streams through datapath
-   micro-programs and the full factory corpus; an FNV-1a hash of every
-   raw output sample is asserted, freezing behavior that was
-   cross-validated instruction by instruction against independent FV-1
-   implementations (bit-identical on every shared-datapath probe:
-   ALU/SOF, register filters, bit ops, SKP/PACC, delay/WRAP/LR,
-   ADDR_PTR/RMPA, ramp phase generation).
+8. **Golden vectors** (`tests/golden.rs`, `tests/log_exp_values.rs`):
+   whole-program bit-exactness. A deterministic integer-only test signal
+   streams through datapath micro-programs and the full factory corpus;
+   an FNV-1a hash of every raw output sample is asserted, freezing
+   behavior that was cross-validated instruction by instruction against
+   independent FV-1 implementations (bit-identical on every
+   shared-datapath probe: ALU/SOF, register filters, bit ops, SKP/PACC,
+   delay/WRAP/LR, ADDR_PTR/RMPA, ramp phase generation). `LOG`/`EXP`
+   are additionally pinned to an 84-point exact-value table.
+9. **Reference captures** (`tests/reference_wav.rs`, `tests/data/`):
+   24-bit WAVs at the chip rate captured by running the same golden
+   signal through an independent FV-1 virtual machine, committed to the
+   repo; our VM's output must equal every sample of every capture
+   exactly, with no tolerance.
 
 ## Benchmarks
 
