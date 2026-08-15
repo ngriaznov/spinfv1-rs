@@ -93,10 +93,18 @@ fn dry_phrase() -> Vec<f32> {
     let mut out = vec![0.0f32; total];
     for &(freq, start) in &notes {
         let s0 = (start * HOST_RATE) as usize;
-        let len = (HOST_RATE * 0.25) as usize; // short staccato pluck
+        // Let each pluck ring until the envelope is negligible, then take it
+        // to exactly zero with a raised-cosine release so the note boundary
+        // has no discontinuity (an abrupt cut at audible amplitude clicks).
+        let len = (HOST_RATE * 0.45) as usize;
+        let fade = (HOST_RATE * 0.08) as usize;
         for i in 0..len {
             let t = i as f64 / HOST_RATE;
-            let env = (-14.0 * t).exp() * (1.0 - (-800.0 * t).exp());
+            let mut env = (-14.0 * t).exp() * (1.0 - (-800.0 * t).exp());
+            if i >= len - fade {
+                let x = (i - (len - fade)) as f64 / fade as f64;
+                env *= 0.5 * (1.0 + (core::f64::consts::PI * x).cos());
+            }
             let tone = (core::f64::consts::TAU * freq * t).sin()
                 + 0.35 * (core::f64::consts::TAU * 2.0 * freq * t).sin();
             out[s0 + i] += (0.42 * env * tone) as f32;
