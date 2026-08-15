@@ -154,8 +154,8 @@ results (no platform libm is involved anywhere):
 - `libm`: marker feature for `no_std` builds
   (`--no-default-features --features libm`), exposing the VM and program
   types for pre-assembled programs (`Program::from_words`,
-  `Program::from_bytes`, or `Instruction`s built by hand). The name is
-  historical — no libm crate is pulled in.
+  `Program::from_bytes`, or `Instruction`s built by hand). No external
+  libm crate is used.
 
 Exactly one of the two must be enabled; enabling neither is a compile
 error. Both configurations still require a global allocator
@@ -277,13 +277,6 @@ close to 80× the chip's real-time rate, and light effects sit well above
 - Pots are read at full S.23 resolution, where the chip's ADC reads
   "approximately a 10-bit resolution" (SpinASM user manual) — full
   resolution suits smooth virtual knobs and avoids zipper steps.
-- There is deliberately no time-compensated native-rate mode (rescaling
-  delay/LFO time constants while running at the host rate): one-pole
-  filter coefficients (`RDFX`/`WRLX`) are per-sample constants baked
-  into program words and cannot be rescaled without changing what the
-  program computes, and interpolated delay reads add coloration inside
-  reverb feedback loops. Use boundary resampling or crystal-swap
-  instead.
 
 ## References
 

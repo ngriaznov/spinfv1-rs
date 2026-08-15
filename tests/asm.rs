@@ -693,7 +693,7 @@ fn lowercase_mnemonic_operand_named_mem_is_not_a_directive() {
 
 #[test]
 fn instruction_colliding_with_mem_keyword_is_never_silently_dropped() {
-    // Without the comma, `JAM MEM 5` used to parse as a valid `MEM`
+    // Without the comma, `JAM MEM 5` must not parse as a valid `MEM`
     // allocation directive and silently swallow the whole `JAM`
     // instruction. It must now always be an error, and in particular must
     // never shrink the instruction count.
