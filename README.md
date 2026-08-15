@@ -132,27 +132,35 @@ delay RAM.
 
 ## Testing
 
-`cargo test` runs over 115 tests in six layers:
+`cargo test` runs over 130 tests in seven layers:
 
-1. **Unit** (`src/fixed.rs`, `src/asm.rs`): saturation, sign extension,
+1. **Spec conformance** (`tests/spec_conformance.rs`): a deliberate
+   per-instruction matrix. Every `Instruction` variant has a case that
+   quotes the Spin ASM users manual's formula and checks the emulator
+   against an independent in-test reference implementation of the spec
+   arithmetic (never the crate's own helpers). Completeness is enforced
+   structurally: an exhaustive `match` makes a new instruction variant a
+   compile error until it is named, and the matrix fails until the new
+   variant has a spec case.
+2. **Unit** (`src/fixed.rs`, `src/asm.rs`): saturation, sign extension,
    quantizers, and assembler tokenizing/expression evaluation.
-2. **Codec** (`tests/codec.rs`): golden instruction words checked against
+3. **Codec** (`tests/codec.rs`): golden instruction words checked against
    SpinASM encodings, exhaustive field sweeps, and a 2-million-word
    fuzz proving decode/encode is total and canonical-lossless.
-3. **Semantics** (`tests/alu.rs`, `tests/delay.rs`, `tests/skp.rs`): every
+4. **Semantics** (`tests/alu.rs`, `tests/delay.rs`, `tests/skp.rs`): every
    instruction verified against independently computed fixed-point
    expectations — including PACC pipeline timing, LR, saturation rails,
    truncation direction, and all skip conditions.
-4. **LFO** (`tests/lfo.rs`): measured oscillator frequency vs. the datasheet
+5. **LFO** (`tests/lfo.rs`): measured oscillator frequency vs. the datasheet
    formula, amplitude scaling, quadrature, ramp periods and direction,
    crossfade triangle, RPTR2 tap placement, interpolation-pair unity.
-5. **Audio end-to-end** (`tests/audio_e2e.rs`): complete effect programs
+6. **Audio end-to-end** (`tests/audio_e2e.rs`): complete effect programs
    verified by signal analysis — sample-exact echoes, a one-pole filter
    matched against a double-precision reference, chorus whose measured
    delay modulation tracks the LFO in depth *and* period, and the classic
    dual-tap pitch shifter verified to shift 440 Hz by exact ratios
    (0.5×, 1.3×, 2×), plus a random-program robustness fuzz.
-6. **Assembler** (`tests/asm.rs`): golden SpinASM programs (echo, feedback
+7. **Assembler** (`tests/asm.rs`): golden SpinASM programs (echo, feedback
    delay, one-pole filter, chorus, pitch shifter) checked word-for-word
    against the equivalent hand-built `Instruction`s, every instruction and
    pseudo-op, `MEM`/`EQU`/label semantics, coefficient range edges
