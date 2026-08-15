@@ -55,7 +55,7 @@ pub const fn sx(v: u32, bits: u32) -> i32 {
 #[inline]
 #[must_use]
 pub fn f32_to_s23(x: f32) -> i32 {
-    sat24((f64::from(x) * ONE_S23 as f64).round() as i64)
+    sat24(crate::math::round(f64::from(x) * ONE_S23 as f64) as i64)
 }
 
 /// Convert an S.23 value to a float sample.
@@ -95,37 +95,37 @@ pub mod coeff {
     /// S1.14: 16-bit field, `[-2.0, 1.99993896484375]`.
     #[must_use]
     pub fn s1_14(x: f64) -> i16 {
-        (x * 16384.0).round().clamp(-32768.0, 32767.0) as i16
+        crate::math::round(x * 16384.0).clamp(-32768.0, 32767.0) as i16
     }
 
     /// S1.9: 11-bit field, `[-2.0, 1.998046875]`.
     #[must_use]
     pub fn s1_9(x: f64) -> i16 {
-        (x * 512.0).round().clamp(-1024.0, 1023.0) as i16
+        crate::math::round(x * 512.0).clamp(-1024.0, 1023.0) as i16
     }
 
     /// S.10: 11-bit field, `[-1.0, 0.9990234375]`.
     #[must_use]
     pub fn s_10(x: f64) -> i16 {
-        (x * 1024.0).round().clamp(-1024.0, 1023.0) as i16
+        crate::math::round(x * 1024.0).clamp(-1024.0, 1023.0) as i16
     }
 
     /// S4.6: 11-bit field, `[-16.0, 15.984375]`.
     #[must_use]
     pub fn s4_6(x: f64) -> i16 {
-        (x * 64.0).round().clamp(-1024.0, 1023.0) as i16
+        crate::math::round(x * 64.0).clamp(-1024.0, 1023.0) as i16
     }
 
     /// S.15: 16-bit field, `[-1.0, 0.999969482421875]`.
     #[must_use]
     pub fn s_15(x: f64) -> i16 {
-        (x * 32768.0).round().clamp(-32768.0, 32767.0) as i16
+        crate::math::round(x * 32768.0).clamp(-32768.0, 32767.0) as i16
     }
 
     /// S.23: 24-bit register value, `[-1.0, ~1.0)`.
     #[must_use]
     pub fn s_23(x: f64) -> i32 {
-        super::sat24((x * super::ONE_S23 as f64).round() as i64)
+        super::sat24(crate::math::round(x * super::ONE_S23 as f64) as i64)
     }
 }
 

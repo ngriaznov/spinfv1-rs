@@ -9,7 +9,21 @@ repository = "https://github.com/ngriaznov/spinfv1-rs"
 keywords = ["fv-1", "dsp", "emulator", "audio", "spin-semiconductor"]
 categories = ["emulators", "multimedia::audio"]
 
+[features]
+default = ["std"]
+# Use the host's libm via std's f64 methods (log2/exp2/round). Enabled by
+# default; disable with `--no-default-features` for a `no_std` build.
+std = []
+# Pure-Rust libm implementations of the same operations, for `no_std`
+# targets: build with `--no-default-features --features libm`.
+libm = ["dep:libm"]
+
 [dependencies]
+libm = { version = "0.2", optional = true, default-features = false }
+
+[[bench]]
+name = "throughput"
+harness = false
 
 [profile.test]
 opt-level = 2

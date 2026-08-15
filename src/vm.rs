@@ -1,11 +1,15 @@
 //! The FV-1 virtual machine: registers, delay RAM, LFOs and the
 //! per-sample execution loop.
 
+use alloc::boxed::Box;
+use alloc::vec;
+
 use crate::fixed::{
     ACC_MAX, ACC_MIN, ONE_S23, f32_to_s23, mul_s1_9, mul_s1_14, mul_s23, s23_to_f32, sat24, sx24,
 };
 use crate::instruction::{ChoFlags, Instruction, LfoSel, SkpCond, reg};
 use crate::lfo::{ChoValue, RampLfo, SinLfo};
+use crate::math;
 use crate::program::{PROGRAM_LEN, Program};
 
 /// Delay RAM size in samples (~1 second at 32,768 Hz).
@@ -226,7 +230,7 @@ impl Fv1 {
                         i64::from(ACC_MIN)
                     } else {
                         let mag = f64::from(self.acc.unsigned_abs()) / f64::from(ONE_S23);
-                        sat24((mag.log2() * f64::from(1 << 19)).round() as i64).into()
+                        sat24(math::round(math::log2(mag) * f64::from(1 << 19)) as i64).into()
                     };
                     self.acc = sat24(mul_s1_14(l, i64::from(c)) + (i64::from(d) << 13));
                 }
@@ -236,7 +240,7 @@ impl Fv1 {
                         i64::from(ACC_MAX)
                     } else {
                         let x = f64::from(self.acc) / f64::from(1 << 19);
-                        (x.exp2() * f64::from(ONE_S23)).round() as i64
+                        math::round(math::exp2(x) * f64::from(ONE_S23)) as i64
                     };
                     self.acc = sat24(mul_s1_14(e, i64::from(c)) + (i64::from(d) << 13));
                 }

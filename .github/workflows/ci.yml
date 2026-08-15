@@ -20,8 +20,16 @@ jobs:
         run: cargo fmt --check
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
+      - name: Build (no_std + libm)
+        run: cargo build --no-default-features --features libm
+      - name: Clippy (no_std + libm)
+        run: cargo clippy --no-default-features --features libm --all-targets -- -D warnings
       - name: Tests
         run: cargo test
+      - name: Tests (no_std + libm)
+        run: cargo test --no-default-features --features libm
+      - name: Benchmarks (compile only)
+        run: cargo bench --no-run
       - name: Docs
         run: cargo doc --no-deps
         env:

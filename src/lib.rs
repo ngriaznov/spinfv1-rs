@@ -47,13 +47,37 @@
 //!   14 bits. Call [`Fv1::set_delay_quantization`] to emulate that.
 //! * `LOG`/`EXP` are computed in double precision and rounded to S.23, which
 //!   is at least as accurate as the chip's internal approximation.
+//!
+//! ## `no_std`
+//!
+//! The DSP core (`Fv1`, `Program`, `Instruction`, `fixed`) is `no_std`
+//! compatible; see the crate README for the feature flags that enable it.
+//! The built-in SpinASM assembler (`assemble`) needs heap-allocated strings
+//! and a hash map from `std` and is only available with the default `std`
+//! feature; its doc link is omitted here because this paragraph must also
+//! compile under `no_std`, where the item doesn't exist.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(any(feature = "std", feature = "libm")))]
+compile_error!(
+    "spinfv1 needs a source of floating-point log2/exp2/round: enable the default `std` \
+     feature, or build `no_std` with `--no-default-features --features libm`."
+);
+
+extern crate alloc;
+
+#[cfg(feature = "std")]
+pub mod asm;
 pub mod fixed;
 mod instruction;
 mod lfo;
+mod math;
 mod program;
 mod vm;
 
+#[cfg(feature = "std")]
+pub use asm::{AsmError, assemble};
 pub use fixed::coeff;
 pub use instruction::{ChoFlags, Instruction, LfoSel, RampAmp, SkpCond, reg};
 pub use program::{NOP_WORD, PROGRAM_LEN, Program, ProgramError};

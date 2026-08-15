@@ -38,7 +38,7 @@ impl fmt::Display for ProgramError {
     }
 }
 
-impl std::error::Error for ProgramError {}
+impl core::error::Error for ProgramError {}
 
 impl Program {
     /// Build from up to 128 raw words; shorter programs are padded with `NOP`.

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Strip AI attribution lines from the commit message.
+# Runs for `git commit` and for `git merge` (modern git invokes commit-msg
+# for merge commits as well); prepare-commit-msg covers older flows.
+f="$1"
+[ -n "$f" ] && [ -f "$f" ] || exit 0
+tmp="$f.stripped.$$"
+grep -viE '^(co-authored-by:.*(claude|anthropic)|claude-session:|(🤖 *)?generated (with|by).*claude)' "$f" > "$tmp"
+mv "$tmp" "$f"
+exit 0
