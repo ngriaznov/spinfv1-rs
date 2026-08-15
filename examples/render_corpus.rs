@@ -34,11 +34,11 @@ const SETTINGS: &[(&str, [f32; 3], f32, f32)] = &[
     ("GA_DEMO_FLANGE", [0.0, 0.5, 0.8], 0.0, 0.9),
     ("GA_DEMO_TREM", [0.0, 0.6, 0.9], 0.0, 0.9),
     ("GA_DEMO_PHASE", [0.0, 0.5, 0.8], 0.0, 0.9),
-    // pot0 = pitch: the program's SOF maps the full pot to only +/-4
-    // semitones (rate +/-0.125), so use the whole range for a clear shift.
-    ("rom_pitch", [1.0, 0.5, 0.5], 0.0, 0.9),
+    // pot0 = pitch: the program's SOF maps the pot to +/-4 semitones
+    // (rate +/-0.125); pot fully down renders the -4 semitone end.
+    ("rom_pitch", [0.0, 0.5, 0.5], 0.0, 0.9),
     // pot0 = pitch, pot1 = echo delay, pot2 = echo mix.
-    ("rom_pt_echo", [1.0, 0.5, 0.8], 0.0, 0.9),
+    ("rom_pt_echo", [0.0, 0.5, 0.8], 0.0, 0.9),
     // Our own fixed octave-down transposer; no pots.
     ("octave_down", [0.0, 0.0, 0.0], 0.0, 0.9),
 ];
