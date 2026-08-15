@@ -39,6 +39,8 @@ const SETTINGS: &[(&str, [f32; 3], f32, f32)] = &[
     ("rom_pitch", [1.0, 0.5, 0.5], 0.0, 0.9),
     // pot0 = pitch, pot1 = echo delay, pot2 = echo mix.
     ("rom_pt_echo", [1.0, 0.5, 0.8], 0.0, 0.9),
+    // Our own fixed octave-down transposer; no pots.
+    ("octave_down", [0.0, 0.0, 0.0], 0.0, 0.9),
 ];
 
 fn main() -> std::io::Result<()> {

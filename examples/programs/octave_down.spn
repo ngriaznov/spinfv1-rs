@@ -1,0 +1,34 @@
+; octave_down.spn — original example program for this emulator (MIT, this
+; repository). Not a Spin Semiconductor program.
+;
+; Dual-tap crossfaded pitch transposer fixed at one octave down: the ramp
+; rate -8192 gives a pitch ratio of 1 - 8192/16384 = 0.5. Mono sum in,
+; same shifted signal on both outputs. No pots.
+
+mem	pdel	4096	;transposer window
+mem	ptemp	1	;scratch for the first tap
+
+skp	run, start
+wldr	rmp0, -8192, 4096
+start:
+
+;write the mono input into the window:
+rdax	adcl, 0.5
+rdax	adcr, 0.5
+wra	pdel, 0
+
+;tap 1 at the ramp pointer, linearly interpolated:
+cho	rda, rmp0, reg|compc, pdel
+cho	rda, rmp0, 0, pdel+1
+wra	ptemp, 0
+
+;tap 2 half a window away:
+cho	rda, rmp0, rptr2|compc, pdel
+cho	rda, rmp0, rptr2, pdel+1
+
+;crossfade the taps with the triangle envelope:
+cho	sof, rmp0, na|compc, 0
+cho	rda, rmp0, na, ptemp
+
+wrax	dacl, 1.0
+wrax	dacr, 0
