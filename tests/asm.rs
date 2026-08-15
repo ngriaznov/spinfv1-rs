@@ -270,7 +270,7 @@ fn every_instruction_and_pseudo_op_assembles() {
         WRLX   REG4, 0.75
         MAXX   REG5, 1.0
         MULX   REG6
-        LOG    1.0, 2.0
+        LOG    1.0, 0.5
         EXP    1.0, 0.5
         SOF    1.0, -0.5
         AND    $7FFFFF
@@ -336,7 +336,7 @@ fn every_instruction_and_pseudo_op_assembles() {
         Instruction::Mulx { reg: reg::user(6) },
         Instruction::Log {
             c: coeff::s1_14(1.0),
-            d: coeff::s4_6(2.0),
+            d: coeff::s_10(0.5),
         },
         Instruction::Exp {
             c: coeff::s1_14(1.0),
@@ -513,7 +513,7 @@ fn s1_14_values_strictly_between_max_and_shorthand_are_errors() {
 }
 
 #[test]
-fn s_10_and_s4_6_shorthands() {
+fn s_10_shorthands() {
     let p = assemble("SOF 1.0, 1.0").unwrap();
     let Instruction::Sof { c, d } = p.instructions()[0] else {
         panic!("expected SOF")
@@ -521,11 +521,11 @@ fn s_10_and_s4_6_shorthands() {
     assert_eq!(c, 16384); // S1.14: 1.0 is exactly representable.
     assert_eq!(d, 1023); // S.10 shorthand: 1.0 -> max representable.
 
-    let p = assemble("LOG 1.0, 16.0").unwrap();
+    let p = assemble("LOG 1.0, 1.0").unwrap();
     let Instruction::Log { d, .. } = p.instructions()[0] else {
         panic!("expected LOG")
     };
-    assert_eq!(d, 1023); // S4.6 shorthand: 16.0 -> max representable.
+    assert_eq!(d, 1023); // S.10 shorthand: 1.0 -> max representable.
 }
 
 #[test]

@@ -144,8 +144,10 @@ fn multiple_conditions_are_anded() {
 }
 
 #[test]
-fn skp_zero_conditions_never_skips() {
-    // SKP 0,N is fall-through (and SKP 0,0 is NOP).
+fn skp_no_conditions_skips_unconditionally() {
+    // Per the instruction spec, "all set conditions hold" is vacuously
+    // true for an empty mask: SKP 0,N is the chip's unconditional jump
+    // (SpinASM's JMP), and SKP 0,0 remains a NOP.
     let mut fv1 = vm(&[
         Instruction::ldax(reg::ADCL),
         Instruction::Skp {
@@ -155,7 +157,7 @@ fn skp_zero_conditions_never_skips() {
         Instruction::CLR,
         OUT,
     ]);
-    assert_eq!(fv1.process_raw(123, 0).0, 0, "CLR executes despite N=1");
+    assert_eq!(fv1.process_raw(123, 0).0, 123, "CLR is jumped over");
 }
 
 #[test]

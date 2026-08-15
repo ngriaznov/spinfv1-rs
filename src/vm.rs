@@ -257,7 +257,11 @@ impl Fv1 {
                     self.acc = sx24((self.acc & 0xFF_FFFF) ^ mask as i32);
                 }
                 Instruction::Skp { cond, n } => {
-                    if !cond.is_empty() && self.skp_taken(cond) {
+                    // An empty condition mask skips unconditionally
+                    // (vacuous truth over "all set conditions hold"):
+                    // `SKP 0,N` is the chip's unconditional jump, and
+                    // `SKP 0,0` is NOP either way.
+                    if self.skp_taken(cond) {
                         ic += usize::from(n);
                     }
                 }

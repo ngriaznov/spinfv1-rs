@@ -27,7 +27,9 @@ use crate::fixed::sx;
 pub struct SkpCond(pub u8);
 
 impl SkpCond {
-    /// Never skip (a `SKP 0,N` acts as plain fall-through; `SKP 0,0` is NOP).
+    /// No conditions: "all set conditions hold" is vacuously true, so
+    /// `SKP 0,N` always skips (the chip's unconditional jump — SpinASM's
+    /// `JMP`); `SKP 0,0` is the `NOP` pseudo-op.
     pub const NONE: Self = Self(0);
     /// Skip if ACC is negative.
     pub const NEG: Self = Self(0x01);
@@ -288,11 +290,15 @@ pub enum Instruction {
         /// Register address.
         reg: u8,
     },
-    /// `LOG C, D` — `ACC = C * log2(|ACC|) + D` in S4.19; `c` S1.14, `d` S4.6.
+    /// `LOG C, D` — `ACC = (log2(|ACC|)/16) * C + D`; `c` S1.14, `d` S.10.
+    ///
+    /// The result lives in the /16-normalized log domain (equivalently:
+    /// ACC as S4.19), where the 11-bit `d` aligns as an S.10 value —
+    /// Spin's sheet gives its range as -1 to +0.999023.
     Log {
         /// Coefficient, raw S1.14.
         c: i16,
-        /// Offset, raw S4.6 (11 bits).
+        /// Offset, raw S.10 (11 bits).
         d: i16,
     },
     /// `EXP C, D` — `ACC = C * 2^ACC + D` (ACC read as S4.19); `c` S1.14, `d` S.10.
@@ -625,7 +631,7 @@ impl fmt::Display for Instruction {
             Self::Wrlx { reg, c } => write!(f, "WRLX {reg}, {}", c14(c)),
             Self::Maxx { reg, c } => write!(f, "MAXX {reg}, {}", c14(c)),
             Self::Mulx { reg } => write!(f, "MULX {reg}"),
-            Self::Log { c, d } => write!(f, "LOG {}, {}", c14(c), f64::from(d) / 64.0),
+            Self::Log { c, d } => write!(f, "LOG {}, {}", c14(c), f64::from(d) / 1024.0),
             Self::Exp { c, d } => write!(f, "EXP {}, {}", c14(c), f64::from(d) / 1024.0),
             Self::Sof { c, d } => write!(f, "SOF {}, {}", c14(c), f64::from(d) / 1024.0),
             Self::And { mask } => write!(f, "AND ${mask:06X}"),

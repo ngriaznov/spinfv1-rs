@@ -2,9 +2,11 @@
 //! instruction-set specification.
 //!
 //! Every [`Instruction`] variant has a case here whose expected value is
-//! computed from the *specification formula* (quoted from the Spin ASM
-//! users manual / FV-1 datasheet in each case) using the independent
-//! spec-math helpers below — never from the crate's own arithmetic.
+//! computed from the *specification formula* — audited against Spin
+//! Semiconductor's official instruction sheet
+//! (spinsemi.com/knowledge_base/cheat.html) and the FV-1 datasheet
+//! (SPN1001-DS-170829) — using the independent spec-math helpers below,
+//! never the crate's own arithmetic.
 //!
 //! Completeness is enforced twice:
 //! * [`variant_name`] is an exhaustive `match` with no wildcard arm, so
@@ -62,7 +64,7 @@ fn eval1(body: &[Instruction], acc_in: i64) -> i64 {
 
 struct Case {
     variant: &'static str,
-    /// The behavior formula, quoted from the Spin ASM users manual.
+    /// The behavior formula, per Spin's instruction sheet.
     spec: &'static str,
     run: fn(),
 }
@@ -219,8 +221,9 @@ const CASES: &[Case] = &[
     },
     Case {
         variant: "LOG",
-        spec: "LOG C,D: ACC = C*LOG2(|ACC|) + D, ACC read/written as S4.19 \
-               (C: S1.14, D: S4.6); LOG(0) pins to -16",
+        spec: "LOG K1,K2: ACC = (LOG2(ACC)/16)*K1 + K2 \
+               (K1: 16b S1.14; K2: 11b, -1 to +0.999023, aligned to the \
+               /16-normalized log domain); LOG(0) pins to the domain floor",
         run: || {
             // log2(0.25) = -2.0 exactly: raw S4.19 result -2 << 19.
             let acc = q(0.25, 23);
@@ -251,8 +254,9 @@ const CASES: &[Case] = &[
     },
     Case {
         variant: "EXP",
-        spec: "EXP C,D: ACC = C*EXP2(ACC) + D, ACC read as S4.19 \
-               (C: S1.14, D: S.10); EXP2 saturates at 1.0 for ACC >= 0",
+        spec: "EXP K1,K2: ACC = (2^(ACC*16))*K1 + K2 \
+               (K1: 16b S1.14; K2: 11b, -1 to +0.999023); the exponential \
+               saturates at 1.0 for ACC >= 0",
         run: || {
             // 2^(-2) = 0.25 exactly.
             let acc = -2 << 19;
@@ -438,7 +442,8 @@ const CASES: &[Case] = &[
         variant: "SKP",
         spec: "SKP CMASK,N: skip N instructions when every set condition \
                holds (NEG: ACC<0; GEZ: ACC>=0; ZRO: ACC==0; ZRC: sign of \
-               ACC differs from PACC; RUN: not the first pass)",
+               ACC differs from PACC; RUN: not the first pass). An empty \
+               mask holds vacuously: SKP 0,N is an unconditional jump",
         run: || {
             let probe = |cond: SkpCond, acc: i64| -> bool {
                 // If the skip is taken the sentinel SOF is jumped over and
@@ -468,6 +473,9 @@ const CASES: &[Case] = &[
                 100, // positive PACC source
             );
             assert_eq!(crossed, q(-0.5, 10) << 13, "sign change skips CLR");
+            // Empty mask: unconditional jump (SpinASM's JMP).
+            assert!(probe(SkpCond::NONE, 1), "SKP 0,N must always skip");
+            assert!(probe(SkpCond::NONE, -1), "SKP 0,N must always skip");
             // RUN: false only on the very first pass after load.
             let mut fv1 = vm(&[
                 Instruction::ldax(reg::ADCL),

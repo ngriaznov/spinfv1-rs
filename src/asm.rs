@@ -21,8 +21,8 @@
 //! write the conventional round-number spelling of a format's upper bound
 //! even though it isn't exactly representable (e.g. `2.0` for an S1.14 or
 //! S1.9 field whose true maximum is `1.99993896484375`/`1.998046875`,
-//! `1.0` for S.10/S.15, `16.0` for S4.6). This assembler follows that
-//! convention: a literal exactly equal to `2.0`/`1.0`/`16.0` (as
+//! `1.0` for S.10/S.15). This assembler follows that
+//! convention: a literal exactly equal to `2.0`/`1.0` (as
 //! appropriate for the field) is accepted and mapped to the format's
 //! largest representable value; any other out-of-range literal is an error.
 //!
@@ -934,18 +934,6 @@ fn coeff_s_10(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, St
     )
 }
 
-fn coeff_s4_6(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
-    quantize(
-        coeff_value(tokens, symtab)?,
-        64.0,
-        -1024,
-        1023,
-        16.0,
-        "S4.6",
-        coeff::s4_6,
-    )
-}
-
 fn coeff_s_15(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
     quantize(
         coeff_value(tokens, symtab)?,
@@ -1179,7 +1167,10 @@ fn parse_instruction(
             need(2)?;
             Ok(Instruction::Log {
                 c: coeff_s1_14(&groups[0], symtab).map_err(&err)?,
-                d: coeff_s4_6(&groups[1], symtab).map_err(&err)?,
+                // Spin's instruction sheet: LOG K2 is 11 bits, -1 to
+                // +0.999023 (S.10) — the same source-text convention as
+                // SOF/EXP offsets, added after the /16 log normalization.
+                d: coeff_s_10(&groups[1], symtab).map_err(&err)?,
             })
         }
         "EXP" => {

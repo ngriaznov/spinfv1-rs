@@ -23,9 +23,11 @@ modes fall out, two of which already work today:
     kernel, so hosts get this turnkey instead of hand-rolling it.
 - **B. "Crystal swap" mode (run the VM at the host rate)** — zero cost,
   already works: call `process()` at any rate. Everything time-based
-  scales, exactly like the real-world FV-1 overclocking mod (delays
-  shorten by `32768/fs`, LFOs and decays speed up). Not wrong — a
-  different, hardware-authentic character.
+  scales (delays shorten by `32768/fs`, LFOs and decays speed up). This
+  is officially supported chip behavior, not a mod: the FV-1 datasheet
+  states "any logic level clock source can be attached ... the sample
+  rate of the system will be at this applied rate" and headlines
+  operation at Fs=48KHz.
   - *Planned*: document this as a supported mode, and expose it in the
     VCV module as a continuous "clock" control (smooth crystal-swap is
     something real hardware can't do).
