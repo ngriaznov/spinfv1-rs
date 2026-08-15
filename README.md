@@ -209,6 +209,12 @@ This is an original, from-scratch implementation based on Spin
 Semiconductor's public documentation: the FV-1 datasheet, the Spin ASM
 users manual, and *AN-0001: Basics of the LFOs in the FV-1*.
 
+## Roadmap
+
+Planned extensions — including the sample-rate strategy (boundary
+resampling vs. hardware-style "crystal swap" operation) — are documented
+in [ROADMAP.md](ROADMAP.md).
+
 ## License
 
 MIT
