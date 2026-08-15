@@ -167,12 +167,23 @@ fn feedback_echo_decays_geometrically() {
 }
 
 #[test]
-fn delay_quantization_truncates_low_bits() {
-    let mut fv1 = vm(&echo_program(1));
-    fv1.set_delay_quantization(true);
-    fv1.process_raw(0x0012_3457, 0);
-    let out = fv1.process_raw(0, 0).0;
-    assert_eq!(out, 0x0012_3400, "14-bit mode zeroes the low 10 bits");
+fn delay_quantization_models_compressed_float() {
+    // The 14-bit delay word is a compressed float: the magnitude keeps its
+    // top 10 significant bits, so the quantization step scales with level.
+    let round_trip = |x: i32| {
+        let mut fv1 = vm(&echo_program(1));
+        fv1.set_delay_quantization(true);
+        fv1.process_raw(x, 0);
+        fv1.process_raw(0, 0).0
+    };
+
+    // Loud signal (21 significant bits): step 2^11, top 10 bits survive.
+    assert_eq!(round_trip(0x0012_3457), 0x0012_3000);
+    // Quiet signal (13 significant bits): step is the 2^6 floor — much
+    // finer than a linear 14-bit store's fixed 2^10 step.
+    assert_eq!(round_trip(0x1234), 0x1200);
+    // Negative values quantize symmetrically.
+    assert_eq!(round_trip(-0x0012_3457), -0x0012_3000);
 
     // Fresh VM without quantization keeps every bit.
     let mut fv1 = vm(&echo_program(1));

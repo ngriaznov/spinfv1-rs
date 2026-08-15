@@ -21,8 +21,8 @@
 //! write the conventional round-number spelling of a format's upper bound
 //! even though it isn't exactly representable (e.g. `2.0` for an S1.14 or
 //! S1.9 field whose true maximum is `1.99993896484375`/`1.998046875`,
-//! `1.0` for S.10/S.15). This assembler follows that
-//! convention: a literal exactly equal to `2.0`/`1.0` (as
+//! `1.0` for S.10/S.15, `16.0` for LOG's S4.6 offset). This assembler follows that
+//! convention: a literal exactly equal to `2.0`/`1.0`/`16.0` (as
 //! appropriate for the field) is accepted and mapped to the format's
 //! largest representable value; any other out-of-range literal is an error.
 //!
@@ -934,6 +934,18 @@ fn coeff_s_10(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, St
     )
 }
 
+fn coeff_s4_6(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
+    quantize(
+        coeff_value(tokens, symtab)?,
+        64.0,
+        -1024,
+        1023,
+        16.0,
+        "S4.6",
+        coeff::s4_6,
+    )
+}
+
 fn coeff_s_15(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
     quantize(
         coeff_value(tokens, symtab)?,
@@ -991,6 +1003,11 @@ fn cho_lfo(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<LfoSel, St
 }
 
 fn cho_flags(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<ChoFlags, String> {
+    // Spin's own program listings write an empty flags operand
+    // (`cho rda, RMP0, , Delay+1`), meaning "no flags".
+    if tokens.is_empty() {
+        return Ok(ChoFlags(0));
+    }
     let n = eval(tokens, symtab)?
         .as_int()
         .ok_or_else(|| "CHO flags must be an integer or combination of flag names".to_string())?;
@@ -1167,10 +1184,11 @@ fn parse_instruction(
             need(2)?;
             Ok(Instruction::Log {
                 c: coeff_s1_14(&groups[0], symtab).map_err(&err)?,
-                // Spin's instruction sheet: LOG K2 is 11 bits, -1 to
-                // +0.999023 (S.10) — the same source-text convention as
-                // SOF/EXP offsets, added after the /16 log normalization.
-                d: coeff_s_10(&groups[1], symtab).map_err(&err)?,
+                // SPINAsm manual, LOG: D is entered as Real(S4.6), range
+                // -16 to +15.999998. (The knowledge-base cheat sheet lists
+                // "-1 to +0.999023" for LOG's K2 — a copy of EXP's row —
+                // and reference-impl follows that; the tool manual wins here.)
+                d: coeff_s4_6(&groups[1], symtab).map_err(&err)?,
             })
         }
         "EXP" => {
@@ -1308,13 +1326,28 @@ fn parse_cho(groups: &[Vec<Token>], symtab: &HashMap<String, Num>) -> Result<Ins
                     groups.len()
                 ));
             }
+            // SpinASM also accepts COS0/COS1 here, naming the cosine
+            // output of a SIN LFO (selector + COS flag in one token).
+            let (lfo, extra) = match groups[1].as_slice() {
+                [Token::Ident(name)] if name.eq_ignore_ascii_case("COS0") => {
+                    (LfoSel::Sin0, ChoFlags::COS)
+                }
+                [Token::Ident(name)] if name.eq_ignore_ascii_case("COS1") => {
+                    (LfoSel::Sin1, ChoFlags::COS)
+                }
+                _ => (cho_lfo(&groups[1], symtab)?, ChoFlags(0)),
+            };
+            // SpinASM assembles a bare `CHO RDAL, lfo` with the REG bit
+            // set (it has no effect on RDAL's result); match that
+            // canonical encoding when the flags operand is omitted.
+            let flags = if groups.len() == 3 {
+                cho_flags(&groups[2], symtab)?
+            } else {
+                ChoFlags::REG
+            };
             Ok(Instruction::ChoRdal {
-                lfo: cho_lfo(&groups[1], symtab)?,
-                flags: if groups.len() == 3 {
-                    cho_flags(&groups[2], symtab)?
-                } else {
-                    ChoFlags(0)
-                },
+                lfo,
+                flags: ChoFlags(flags.0 | extra.0),
             })
         }
         other => Err(format!(

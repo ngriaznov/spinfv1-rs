@@ -111,9 +111,15 @@ impl Fv1 {
         }
     }
 
-    /// The real chip stores samples in 14-bit delay RAM; the emulator keeps
-    /// full 24-bit precision by default. Enable this to truncate delay writes
-    /// to 14 significant bits for a hardware-flavored noise floor.
+    /// The real chip stores samples in 14-bit delay RAM using "a compressed
+    /// floating point format" (FV-1 datasheet, Delay SRAM section); the
+    /// emulator keeps full 24-bit precision by default. Enable this to pass
+    /// delay writes through a sign + mantissa + exponent model of that
+    /// format for a hardware-flavored noise floor. Spin does not document
+    /// the exact field split, so the model keeps 10 significant magnitude
+    /// bits across an exponent-capped range — small signals quantize much
+    /// finer than a linear 14-bit store would, which is the point of the
+    /// compressed format.
     pub fn set_delay_quantization(&mut self, enabled: bool) {
         self.quantize_delay_14bit = enabled;
     }
@@ -361,11 +367,27 @@ impl Fv1 {
     fn delay_write(&mut self, offset: i32, value: i32) {
         let idx = (self.cursor.wrapping_add(offset) & DELAY_MASK) as usize;
         self.delay[idx] = if self.quantize_delay_14bit {
-            (value >> 10) << 10
+            compress14(value)
         } else {
             value
         };
     }
+}
+
+/// Model of the chip's 14-bit compressed floating-point delay-RAM word:
+/// sign, 10-bit mantissa, 3-bit exponent. The magnitude keeps its top 10
+/// significant bits; the quantization step scales with level from 2^6
+/// (signals below −42 dBFS) up to 2^13 (full scale), so relative precision
+/// stays roughly constant instead of degrading at low level the way a
+/// linear 14-bit store would. Spin documents the format's existence but
+/// not its field split, so the bit allocation here is a documented model,
+/// not a verified silicon layout.
+fn compress14(v: i32) -> i32 {
+    let mag = v.unsigned_abs().min(0x7F_FFFF);
+    let bits = 32 - mag.leading_zeros() as i32;
+    let shift = (bits - 10).clamp(6, 13) as u32;
+    let q = ((mag >> shift) << shift) as i32;
+    if v < 0 { -q } else { q }
 }
 
 impl Default for Fv1 {

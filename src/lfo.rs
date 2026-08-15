@@ -56,17 +56,18 @@ impl SinLfo {
     }
 
     /// Resolve a `CHO` access: address offset plus interpolation coefficient
-    /// from the 11 fractional bits below the sample offset.
+    /// from the 10 fractional bits below the sample offset — the same
+    /// address/fraction split as the RMP LFO datapath.
     ///
-    /// A full-scale amplitude (32767) swings the address ±4096 samples — the
-    /// same maximum as the RMP LFO window — so the excursion in delay samples
-    /// is `amp / 8`. Spin's own programs pin this down: `rom_rev1` comments
-    /// `wlds sin0, 12, 160` as "0.5Hz, +/-20 samples", and the demo chorus
-    /// sweeps `amp = 100` taps placed 100 samples into their buffer, which
-    /// only stays inside the buffer with a ±12.5-sample excursion.
+    /// The excursion in delay samples is `amp / 4`: AN-0001 gives the
+    /// amplitude formula `Ka = N * 32767 / 16385` for a delay of N samples
+    /// (i.e. `Ka ≈ 2N`, excursion `±(N-1)/2 ≈ ±Ka/4`) and its worked chorus
+    /// example pairs `Ka = 16384` with "+/-4096 samples" in a `MEM 8193`
+    /// buffer; the SPINAsm manual's WLDS/CHO examples repeat the same 2:1
+    /// amplitude-to-length pairing (`Amp EQU 8194` for a 4097-sample line).
     pub fn cho(&self, range_reg: i32, flags: ChoFlags) -> ChoValue {
         let v = self.value(range_reg, flags.contains(ChoFlags::COS));
-        let mut coeff = (v & 0x7FF) << 12;
+        let mut coeff = (v & 0x3FF) << 13;
         let v = if flags.contains(ChoFlags::COMPA) {
             -v
         } else {
@@ -76,7 +77,7 @@ impl SinLfo {
             coeff = ACC_MAX - coeff;
         }
         ChoValue {
-            offset: v >> 11,
+            offset: v >> 10,
             coeff,
         }
     }

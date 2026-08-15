@@ -21,16 +21,17 @@ ready to embed in any real-time host.
   `WRLX` and `SKP ZRC` depend on.
 - **Delay RAM**: 32768 samples with the decrementing base pointer, `LR`
   last-read register, and `ADDR_PTR` indirect addressing for `RMPA`.
-  Full 24-bit storage by default; optional 14-bit truncation to mimic the
-  chip's physical RAM width (`Fv1::set_delay_quantization`).
+  Full 24-bit storage by default; optionally model the chip's 14-bit
+  compressed floating-point RAM word (`Fv1::set_delay_quantization`).
 - **LFOs**: both SIN LFOs (magic-circle oscillator, `rate/2^17` rad/sample)
   and both RMP LFOs (22-bit phase, `rate/16` per sample), with live
   register-driven rate/range (pot-controlled modulation works), `JAM`,
   and the full `CHO` flag set — `COS`, `REG`, `COMPC`, `COMPA`, `RPTR2`,
-  `NA` — with the 11-bit (SIN) / 10-bit (RMP) interpolation fractions.
-  SIN address excursion is `amp / 8` samples (±4096 at full scale),
-  anchored to the excursions Spin's own factory programs document in
-  their comments.
+  `NA` — with the 10-bit interpolation fraction below the sample offset
+  (the same datapath split for SIN and RMP). SIN address excursion is
+  `amp / 4` samples, per AN-0001's amplitude formula
+  `Ka = N * 32767 / 16385` and its worked chorus example
+  (`Ka = 16384` sweeping ±4096 samples).
 - **I/O**: stereo ADC/DAC registers, three pots, per-sample or block
   processing, and the 512-byte big-endian EEPROM/bank program format.
 
@@ -212,8 +213,11 @@ close to 80× the chip's real-time rate, and light effects sit well above
   their value is already stable within a pass.
 - `LOG`/`EXP` use double-precision math rounded to S.23 — at least as
   accurate as the silicon's piecewise approximation.
-- Delay RAM is 24-bit by default vs. the chip's 14-bit; opt into 14-bit
-  truncation for authentic noise floor.
+- Delay RAM is 24-bit by default vs. the chip's 14-bit compressed
+  floating-point word; opt into the compressed-float model for an
+  authentic noise floor (the exact mantissa/exponent split is
+  undocumented, so the model keeps 10 significant bits across a
+  level-scaled quantization step).
 
 ## References
 

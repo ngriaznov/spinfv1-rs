@@ -45,14 +45,18 @@ modes fall out, two of which already work today:
 Record a real FV-1 (any pedal with pot access) playing the corpus dry
 phrase through the factory programs, and diff against
 `examples/render_corpus.rs` output. The emulator's renders are
-deterministic, so this pins down the remaining folklore areas: exact
-LOG/EXP approximation shape, SIN LFO interpolation fraction width, and
-delay-RAM quantization behavior.
+deterministic, so this pins down the areas Spin's documents leave open:
+the exact LOG/EXP approximation shape and the mantissa/exponent split of
+the 14-bit compressed floating-point delay word (the datasheet documents
+the format's existence but not its layout; the SIN LFO datapath itself —
+`amp / 4` excursion, 10-bit interpolation fraction — is now anchored to
+AN-0001 rather than folklore).
 
 ## 3. Emulation-fidelity options
 
-- Decide whether 14-bit delay quantization (`set_delay_quantization`)
-  should become the default once hardware comparisons exist.
+- Decide whether the 14-bit compressed-float delay model
+  (`set_delay_quantization`) should become the default once hardware
+  comparisons pin down the word's actual mantissa/exponent split.
 - Investigate the chip's actual LOG/EXP approximation (currently
   double-precision math, at least as accurate as silicon but not proven
   bit-identical).

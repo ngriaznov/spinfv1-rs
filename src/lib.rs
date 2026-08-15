@@ -44,7 +44,8 @@
 //!   oscillator phase, so programs that run them every pass (instead of
 //!   guarding with `SKP RUN`) still modulate correctly; `JAM` resets a ramp.
 //! * Delay RAM keeps full 24-bit precision by default; the real chip stores
-//!   14 bits. Call [`Fv1::set_delay_quantization`] to emulate that.
+//!   a 14-bit compressed floating-point word. Call
+//!   [`Fv1::set_delay_quantization`] to model that.
 //! * `LOG`/`EXP` are computed in double precision and rounded to S.23, which
 //!   is at least as accurate as the chip's internal approximation.
 //!

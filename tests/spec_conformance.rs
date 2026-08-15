@@ -222,8 +222,9 @@ const CASES: &[Case] = &[
     Case {
         variant: "LOG",
         spec: "LOG K1,K2: ACC = (LOG2(ACC)/16)*K1 + K2 \
-               (K1: 16b S1.14; K2: 11b, -1 to +0.999023, aligned to the \
-               /16-normalized log domain); LOG(0) pins to the domain floor",
+               (K1: 16b S1.14; K2: 11b S4.6 per the SPINAsm manual, an \
+               offset in the /16-normalized log domain, -16 to +15.98); \
+               LOG(0) pins to the domain floor",
         run: || {
             // log2(0.25) = -2.0 exactly: raw S4.19 result -2 << 19.
             let acc = q(0.25, 23);

@@ -252,6 +252,47 @@ fn golden_pitch_shifter_matches_hand_built_program() {
     assert_same_program(source, &expected);
 }
 
+#[test]
+fn cho_accepts_empty_flags_operand() {
+    // Spin's own program listings write `cho rda, RMP0, , addr` — an empty
+    // flags operand meaning "no flags".
+    let expected = Program::from_instructions(&[Instruction::ChoRda {
+        lfo: LfoSel::Rmp0,
+        flags: ChoFlags(0),
+        addr: 100,
+    }])
+    .unwrap();
+    assert_same_program("CHO RDA, RMP0, , 100", &expected);
+}
+
+#[test]
+fn cho_rdal_cosine_selectors_and_reg_default() {
+    let expected = Program::from_instructions(&[
+        // COS0/COS1 name the cosine output of a SIN LFO (selector + COS
+        // flag in one token); bare RDAL also gets SpinASM's REG bit.
+        Instruction::ChoRdal {
+            lfo: LfoSel::Sin0,
+            flags: ChoFlags::REG | ChoFlags::COS,
+        },
+        Instruction::ChoRdal {
+            lfo: LfoSel::Sin1,
+            flags: ChoFlags::REG | ChoFlags::COS,
+        },
+        // An explicit flags operand is taken verbatim, REG included or not.
+        Instruction::ChoRdal {
+            lfo: LfoSel::Sin1,
+            flags: ChoFlags(0),
+        },
+    ])
+    .unwrap();
+    let source = "
+        CHO RDAL, COS0
+        CHO RDAL, COS1
+        CHO RDAL, SIN1, 0
+    ";
+    assert_same_program(source, &expected);
+}
+
 // ---------------------------------------------------------------------
 // Every instruction and pseudo-op assembles.
 // ---------------------------------------------------------------------
@@ -270,7 +311,7 @@ fn every_instruction_and_pseudo_op_assembles() {
         WRLX   REG4, 0.75
         MAXX   REG5, 1.0
         MULX   REG6
-        LOG    1.0, 0.5
+        LOG    1.0, 2.0
         EXP    1.0, 0.5
         SOF    1.0, -0.5
         AND    $7FFFFF
@@ -336,7 +377,7 @@ fn every_instruction_and_pseudo_op_assembles() {
         Instruction::Mulx { reg: reg::user(6) },
         Instruction::Log {
             c: coeff::s1_14(1.0),
-            d: coeff::s_10(0.5),
+            d: coeff::s4_6(2.0),
         },
         Instruction::Exp {
             c: coeff::s1_14(1.0),
@@ -376,7 +417,7 @@ fn every_instruction_and_pseudo_op_assembles() {
         },
         Instruction::ChoRdal {
             lfo: LfoSel::Rmp1,
-            flags: ChoFlags(0),
+            flags: ChoFlags::REG, // SpinASM sets REG on a bare RDAL
         },
         Instruction::ChoRdal {
             lfo: LfoSel::Rmp1,
@@ -521,11 +562,12 @@ fn s_10_shorthands() {
     assert_eq!(c, 16384); // S1.14: 1.0 is exactly representable.
     assert_eq!(d, 1023); // S.10 shorthand: 1.0 -> max representable.
 
-    let p = assemble("LOG 1.0, 1.0").unwrap();
+    // LOG's D is S4.6 (SPINAsm manual), so its shorthand ceiling is 16.0.
+    let p = assemble("LOG 1.0, 16.0").unwrap();
     let Instruction::Log { d, .. } = p.instructions()[0] else {
         panic!("expected LOG")
     };
-    assert_eq!(d, 1023); // S.10 shorthand: 1.0 -> max representable.
+    assert_eq!(d, 1023); // S4.6 shorthand: 16.0 -> max representable.
 }
 
 #[test]

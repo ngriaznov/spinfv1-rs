@@ -172,9 +172,10 @@ fn chorus_delay_tracks_the_sine_lfo() {
     // recovers the instantaneous delay exactly, so we can verify the CHO
     // interpolation path end to end.
     //
-    // The amplitude here is the case Spin's rom_rev1 documents in a comment:
-    // `wlds sin0, 12, 160` is "0.5Hz, +/-20 samples", i.e. the SIN LFO
-    // address excursion is amp/8 (±4096 at the full-scale amp of 32767).
+    // The SIN LFO's address excursion is amp/4: AN-0001's amplitude formula
+    // `Ka = N * 32767 / 16385` sizes the LFO for a delay of N samples
+    // (Ka ≈ 2N), and its worked chorus example pairs Ka = 16384 with
+    // "+/-4096 samples" of sweep in a MEM 8193 buffer.
     let base = 1000u16;
     let amp = 160u16;
     let rate = 80u16; // faster than rom_rev1's 12 so the test stays short
@@ -225,8 +226,8 @@ fn chorus_delay_tracks_the_sine_lfo() {
         (mean - f64::from(base)).abs() < 3.0,
         "mean modulated delay {mean}, expected ~{base}"
     );
-    // Excursion = amp/8 samples: ±20 for amp 160, per Spin's own comment.
-    let expected_excursion = f64::from(amp) / 8.0;
+    // Excursion = amp/4 samples: ±40 for amp 160, per AN-0001's formula.
+    let expected_excursion = f64::from(amp) / 4.0;
     let excursion = (max - min) / 2.0;
     assert!(
         (excursion - expected_excursion).abs() < expected_excursion * 0.03,

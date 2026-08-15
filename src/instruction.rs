@@ -290,15 +290,14 @@ pub enum Instruction {
         /// Register address.
         reg: u8,
     },
-    /// `LOG C, D` — `ACC = (log2(|ACC|)/16) * C + D`; `c` S1.14, `d` S.10.
+    /// `LOG C, D` — `ACC = C * log2(|ACC|) + D` in S4.19; `c` S1.14, `d` S4.6.
     ///
-    /// The result lives in the /16-normalized log domain (equivalently:
-    /// ACC as S4.19), where the 11-bit `d` aligns as an S.10 value —
-    /// Spin's sheet gives its range as -1 to +0.999023.
+    /// The SPINAsm manual: D is an offset in the logarithmic domain,
+    /// entered as Real(S4.6) in the range -16 to +15.999998.
     Log {
         /// Coefficient, raw S1.14.
         c: i16,
-        /// Offset, raw S.10 (11 bits).
+        /// Offset, raw S4.6 (11 bits).
         d: i16,
     },
     /// `EXP C, D` — `ACC = C * 2^ACC + D` (ACC read as S4.19); `c` S1.14, `d` S.10.
@@ -631,7 +630,7 @@ impl fmt::Display for Instruction {
             Self::Wrlx { reg, c } => write!(f, "WRLX {reg}, {}", c14(c)),
             Self::Maxx { reg, c } => write!(f, "MAXX {reg}, {}", c14(c)),
             Self::Mulx { reg } => write!(f, "MULX {reg}"),
-            Self::Log { c, d } => write!(f, "LOG {}, {}", c14(c), f64::from(d) / 1024.0),
+            Self::Log { c, d } => write!(f, "LOG {}, {}", c14(c), f64::from(d) / 64.0),
             Self::Exp { c, d } => write!(f, "EXP {}, {}", c14(c), f64::from(d) / 1024.0),
             Self::Sof { c, d } => write!(f, "SOF {}, {}", c14(c), f64::from(d) / 1024.0),
             Self::And { mask } => write!(f, "AND ${mask:06X}"),
