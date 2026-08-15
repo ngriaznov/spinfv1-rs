@@ -177,11 +177,13 @@ delay RAM.
    shared-datapath probe: ALU/SOF, register filters, bit ops, SKP/PACC,
    delay/WRAP/LR, ADDR_PTR/RMPA, ramp phase generation). `LOG`/`EXP`
    are additionally pinned to an 84-point exact-value table.
-9. **Reference captures** (`tests/reference_wav.rs`, `tests/data/`):
-   24-bit WAVs at the chip rate captured by running the same golden
-   signal through an independent FV-1 virtual machine, committed to the
-   repo; our VM's output must equal every sample of every capture
-   exactly, with no tolerance.
+9. **WAV captures** (`tests/reference_wav.rs`, `tests/data/`): committed
+   24-bit WAVs at the chip rate, bit-compared sample for sample with no
+   tolerance. Two tiers: datapath micro-programs captured from an
+   independent FV-1 virtual machine (external cross-check), and the
+   full standard Spin factory corpus (`tests/data/corpus/`) captured
+   from this emulator after cross-validation — inspectable, listenable
+   artifacts freezing whole-program behavior.
 
 ## Benchmarks
 
