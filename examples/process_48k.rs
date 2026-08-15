@@ -24,7 +24,7 @@ mod support;
 use std::path::Path;
 
 use spinfv1::{Fv1, SAMPLE_RATE, assemble};
-use support::{HOST_RATE, dry_phrase, resample, write_wav_stereo};
+use support::{HOST_RATE, dc_block, dry_phrase, resample, write_wav_stereo};
 
 fn main() -> std::io::Result<()> {
     let dir = std::env::args().nth(1).unwrap_or_else(|| ".".into());
@@ -50,8 +50,9 @@ fn main() -> std::io::Result<()> {
         wet_l.push(l);
         wet_r.push(r);
     }
-    let wet_l_48k = resample(&wet_l, SAMPLE_RATE, HOST_RATE);
-    let wet_r_48k = resample(&wet_r, SAMPLE_RATE, HOST_RATE);
+    // AC-couple the output like a real board (see support::dc_block).
+    let wet_l_48k = dc_block(&resample(&wet_l, SAMPLE_RATE, HOST_RATE));
+    let wet_r_48k = dc_block(&resample(&wet_r, SAMPLE_RATE, HOST_RATE));
 
     // rom_rev1 outputs wet only; mix like a pedal would.
     let frames = dry_48k.len().min(wet_l_48k.len());
