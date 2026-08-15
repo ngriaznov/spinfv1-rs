@@ -56,24 +56,24 @@ const MICRO_HASHES: &[(&str, u64)] = &[
     ("bitops_skp", 0xD452947D0885CD79),
     ("delay_feedback", 0xA3FA97E4C0203EC5),
     ("addr_ptr", 0xF851EFC298546FBC),
-    ("sin_chorus", 0x4525E6515028CC92),
+    ("sin_chorus", 0xFD9871871FBE3F08),
     ("rmp_pitch", 0x488A46F9D9D02346),
-    ("cho_sof_live_rate", 0x64B634BB9D359776),
+    ("cho_sof_live_rate", 0xDAFA2C37F0208609),
 ];
 
 const CORPUS_HASHES: &[(&str, u64)] = &[
-    ("GA_DEMO_CHORUS", 0x8FCA34628A65C05B),
-    ("GA_DEMO_FLANGE", 0x0A042329668FFE64),
-    ("GA_DEMO_PHASE", 0x3FB9125D948A931D),
-    ("GA_DEMO_TREM", 0x87A13ECD394D5DD8),
+    ("GA_DEMO_CHORUS", 0xAEB560EADC467A88),
+    ("GA_DEMO_FLANGE", 0xD05145A17B0D3C79),
+    ("GA_DEMO_PHASE", 0xA7BB5E686A0F0521),
+    ("GA_DEMO_TREM", 0x707A45D6CB7DA099),
     ("octave_down", 0x284427521F59E9DD),
-    ("rom_chor_rev", 0x26FC23DB26C79101),
-    ("rom_fla_rev", 0xFE57FBD85C67A1CD),
+    ("rom_chor_rev", 0x3010EA5EE3C9EAD1),
+    ("rom_fla_rev", 0xE7BB3CC40F68D1A5),
     ("rom_pitch", 0xCB5648095DF5C4A0),
     ("rom_pt_echo", 0xBF758A2015F62F55),
-    ("rom_rev1", 0x5E449C46B5C2EAF1),
-    ("rom_rev2", 0x5F9A8A11F2518093),
-    ("rom_trem_rev", 0x57C1C4C874B83791),
+    ("rom_rev1", 0x035A547A7A7E6F64),
+    ("rom_rev2", 0xAE1314567F67BFA8),
+    ("rom_trem_rev", 0x8EF678B3FB0B32B1),
 ];
 
 fn print_mode() -> bool {

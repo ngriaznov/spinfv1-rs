@@ -41,10 +41,16 @@ impl SinLfo {
 
     /// Advance one sample. `rate_reg` is the raw S.23 rate register
     /// (WLDS stores `freq << 14`, so the rotation step is `freq / 2^17` rad).
+    ///
+    /// The state registers are 24-bit like everything else on the chip,
+    /// so each update clamps to the S.23 rails; without this the magic
+    /// circle slightly overshoots ±1.0 at high rates, producing 25-bit
+    /// values no hardware register could hold.
     pub fn tick(&mut self, rate_reg: i32) {
+        let clamp = |v: i64| v.clamp(i64::from(-crate::fixed::ONE_S23), i64::from(ACC_MAX)) as i32;
         let coeff = i64::from(rate_reg >> 8);
-        self.cos = (i64::from(self.cos) + mul_s23(i64::from(self.sin), coeff)) as i32;
-        self.sin = (i64::from(self.sin) - mul_s23(i64::from(self.cos), coeff)) as i32;
+        self.cos = clamp(i64::from(self.cos) + mul_s23(i64::from(self.sin), coeff));
+        self.sin = clamp(i64::from(self.sin) - mul_s23(i64::from(self.cos), coeff));
     }
 
     /// Range-scaled output as read by `CHO RDAL` (raw S.23).

@@ -62,8 +62,8 @@
 
 #[cfg(not(any(feature = "std", feature = "libm")))]
 compile_error!(
-    "spinfv1 needs a source of floating-point log2/exp2/round: enable the default `std` \
-     feature, or build `no_std` with `--no-default-features --features libm`."
+    "spinfv1: enable the default `std` feature, or build `no_std` with \
+     `--no-default-features --features libm`."
 );
 
 extern crate alloc;

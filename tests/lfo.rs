@@ -411,3 +411,26 @@ fn rptr2_reads_half_window_ahead() {
         assert_eq!(out, expected, "RPTR2 impulse timing at {n}");
     }
 }
+
+#[test]
+fn sin_lfo_never_exceeds_the_24_bit_rails() {
+    // At the maximum rate and full range the magic-circle oscillator
+    // would overshoot ±1.0 without state clamping; every architectural
+    // value must stay inside the 24-bit accumulator range.
+    let mut fv1 = vm(&rdal_program(
+        Instruction::Wlds {
+            lfo: false,
+            freq: 511,
+            amp: 32767,
+        },
+        LfoSel::Sin0,
+        ChoFlags::SIN,
+    ));
+    for n in 0..2_000_000u32 {
+        let (out, _) = fv1.process_raw(0, 0);
+        assert!(
+            (-0x80_0000..=0x7F_FFFF).contains(&out),
+            "ACC escaped the rails at sample {n}: {out}"
+        );
+    }
+}

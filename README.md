@@ -35,8 +35,7 @@ ready to embed in any real-time host.
 - **I/O**: stereo ADC/DAC registers, three pots, per-sample or block
   processing, and the 512-byte big-endian EEPROM/bank program format.
 
-Zero runtime dependencies with the default `std` feature (an optional `libm`
-feature trades that for `no_std` support; see below). The chip's native rate
+Zero runtime dependencies in every configuration, `no_std` included. The chip's native rate
 is 32,768 Hz (`spinfv1::SAMPLE_RATE`); the emulator itself is
 one-sample-per-call and rate-agnostic. Two ways to host it at another rate,
 both officially grounded in chip behavior:
@@ -145,24 +144,23 @@ have no operating system:
 cargo build --no-default-features --features libm
 ```
 
-Two features control where the floating-point `log2`/`exp2`/`round` used by
-`LOG`/`EXP`/sample conversion come from:
+Two build configurations select the environment, not the math — the
+floating-point `log2`/`exp2`/`round` behind `LOG`/`EXP` are implemented
+in-crate from nothing but IEEE-754 arithmetic and integer bit
+manipulation, so every platform and configuration computes bit-identical
+results (no platform libm is involved anywhere):
 
-- `std` (**default**): uses `f64`'s inherent methods, backed by the
-  platform's libm. This is the byte-for-byte behavior of every release
-  before `no_std` support was added.
-- `libm`: pulls in the pure-Rust [`libm`](https://crates.io/crates/libm)
-  crate (`default-features = false`) for the same operations, with no
-  dependency on the host's C library or operating system.
+- `std` (default): enables the assembler, the `resampler`/`ffi`
+  features, and the file-based test suites.
+- `libm`: marker feature for `no_std` builds
+  (`--no-default-features --features libm`), exposing the VM and program
+  types for pre-assembled programs (`Program::from_words`,
+  `Program::from_bytes`, or `Instruction`s built by hand). The name is
+  historical — no libm crate is pulled in.
 
-Exactly one of the two must be enabled; enabling neither is a compile error.
-The built-in assembler (`spinfv1::assemble`, [`AsmError`]) needs
-heap-allocated strings and a hash map from `std`, so it is only compiled in
-under the `std` feature — the `no_std` build exposes the VM and program
-types for pre-assembled/pre-encoded programs (`Program::from_words`,
-`Program::from_bytes`, or `Instruction`s built by hand). Both configurations
-still require a global allocator (`extern crate alloc`), for the 32K-word
-delay RAM.
+Exactly one of the two must be enabled; enabling neither is a compile
+error. Both configurations still require a global allocator
+(`extern crate alloc`), for the 32K-word delay RAM.
 
 ## Testing
 
@@ -266,9 +264,11 @@ close to 80× the chip's real-time rate, and light effects sit well above
   this envelope show the flat-topped shape, and the flat zero is what
   lets AN-0001's pitch shifter mute a tap for the whole wrap glitch.
 - `LOG`/`EXP` use double-precision math rounded to S.23 — at least as
-  accurate as the silicon's piecewise approximation. Their behavior is
-  pinned bit-for-bit by an exact-value table (`tests/log_exp_values.rs`)
-  cross-validated against an independent implementation.
+  accurate as the silicon's piecewise approximation, and computed by
+  in-crate deterministic arithmetic so results are bit-identical on
+  every platform. Their behavior is pinned bit-for-bit by an
+  exact-value table (`tests/log_exp_values.rs`) cross-validated against
+  an independent implementation.
 - Delay RAM is 24-bit by default vs. the chip's 14-bit compressed
   floating-point word; opt into the compressed-float model for an
   authentic noise floor (the exact mantissa/exponent split is

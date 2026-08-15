@@ -1036,3 +1036,35 @@ fn full_expression_grammar() {
     let err = assemble("or 0.5 & 1\n").unwrap_err();
     assert!(err.to_string().contains("real"), "{err}");
 }
+
+#[test]
+fn skp_distinguishes_labels_from_equ_constants() {
+    // SpinASM semantics: a label target resolves to a relative distance,
+    // while an EQU constant is the skip count N itself.
+    let source = "
+        HOP EQU 2
+            SKP RUN, HOP    ; count: skip 2 instructions
+            SOF 0, 0.1
+            SOF 0, 0.2
+            SKP 0, DONE     ; label: skip to DONE
+            SOF 0, 0.3
+        DONE:
+            WRAX DACL, 0
+    ";
+    let p = assemble(source).unwrap();
+    let ins = p.instructions();
+    assert_eq!(
+        ins[0],
+        Instruction::Skp {
+            cond: SkpCond::RUN,
+            n: 2, // the constant itself, not a target index
+        }
+    );
+    assert_eq!(
+        ins[3],
+        Instruction::Skp {
+            cond: SkpCond::NONE,
+            n: 1, // DONE is instruction 5: distance 5 - 3 - 1
+        }
+    );
+}

@@ -41,6 +41,14 @@ fn create_modes_and_destroy() {
     }
     assert!(spinfv1_create(-1.0).is_null());
     assert!(spinfv1_create(f64::NAN).is_null());
+    // Extreme finite rates are rejected too: the converter's priming
+    // and buffering must stay bounded.
+    assert!(spinfv1_create(1e-300).is_null());
+    assert!(spinfv1_create(999.0).is_null());
+    assert!(spinfv1_create(1e15).is_null());
+    let edge = spinfv1_create(1_000.0);
+    assert!(!edge.is_null());
+    unsafe { spinfv1_destroy(edge) };
     assert!((spinfv1_native_rate() - 32_768.0).abs() < f64::EPSILON);
 }
 
@@ -87,6 +95,12 @@ fn bad_programs_report_errors_with_messages() {
         let bank = [0u8; 100];
         assert_eq!(
             spinfv1_load_bank(h, bank.as_ptr(), bank.len(), 0),
+            SPINFV1_ERR_PROGRAM
+        );
+        // A slot index whose byte offset would overflow is rejected,
+        // not wrapped into a bogus in-range slot.
+        assert_eq!(
+            spinfv1_load_bank(h, bank.as_ptr(), bank.len(), u32::MAX),
             SPINFV1_ERR_PROGRAM
         );
         spinfv1_destroy(h);

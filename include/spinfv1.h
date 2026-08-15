@@ -44,7 +44,7 @@ enum {
  * per call at whatever rate you call it (officially supported chip
  * behavior; time-based effects scale with the rate).
  *
- * Returns NULL if host_rate is negative or not finite. */
+ * Returns NULL unless host_rate is 0 or within 1000..=1000000 Hz. */
 SpinFv1 *spinfv1_create(double host_rate);
 
 /* Destroy a handle. NULL is a no-op. */

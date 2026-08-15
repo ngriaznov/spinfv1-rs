@@ -82,8 +82,11 @@ impl StreamResampler {
             for (k, tap) in row.iter_mut().enumerate() {
                 // Offset of input sample `k` from the read position.
                 let t = k as f64 - (half - 1.0) - frac;
+                // sin(2·fc·π·t)/(π·t) → 2·fc as t → 0 (the sinc's peak,
+                // not 1.0 — getting this wrong leaks unfiltered signal
+                // straight through integer-phase rows).
                 let sinc = if t == 0.0 {
-                    1.0
+                    2.0 * cutoff
                 } else {
                     let x = core::f64::consts::PI * t;
                     (2.0 * cutoff * x).sin() / x

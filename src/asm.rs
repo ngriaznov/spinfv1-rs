@@ -46,7 +46,7 @@
 //! ```
 
 use core::fmt;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     ChoFlags, DELAY_LEN, Instruction, LfoSel, PROGRAM_LEN, Program, RampAmp, SkpCond, coeff, reg,
@@ -111,6 +111,9 @@ impl std::error::Error for AsmError {}
 /// numbers, or an out-of-range `SKP` target.
 pub fn assemble(source: &str) -> Result<Program, AsmError> {
     let mut symtab = predefined_symbols();
+    // Names defined as `NAME:` labels, so `SKP`'s second operand can
+    // tell a jump target from an `EQU` skip-count constant.
+    let mut labels: HashSet<String> = HashSet::new();
     let mut mem_end: i64 = 0;
     let mut pending: Vec<Pending> = Vec::new();
 
@@ -133,6 +136,7 @@ pub fn assemble(source: &str) -> Result<Program, AsmError> {
                 line,
                 text,
             )?;
+            labels.insert(name.to_ascii_uppercase());
             tokens.drain(0..2);
         }
         if tokens.is_empty() {
@@ -226,7 +230,7 @@ pub fn assemble(source: &str) -> Result<Program, AsmError> {
     let instructions = pending
         .iter()
         .enumerate()
-        .map(|(index, p)| parse_instruction(index, p, &symtab))
+        .map(|(index, p)| parse_instruction(index, p, &symtab, &labels))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Program::from_instructions(&instructions).expect("bounded to PROGRAM_LEN during pass 1"))
 }
@@ -1036,14 +1040,18 @@ fn skp_cond(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<SkpCond, 
 }
 
 /// `SKP`'s second operand: a label name (resolved to the relative skip
-/// distance) or a plain integer `0..=63`.
+/// distance), or an integer skip count `0..=63` — including a count
+/// spelled as an `EQU` constant, which SpinASM treats as the count `N`
+/// itself, never as a target index. Only names defined with `NAME:`
+/// take the label path.
 fn skp_target(
     tokens: &[Token],
     symtab: &HashMap<String, Num>,
+    labels: &HashSet<String>,
     this_index: usize,
 ) -> Result<u8, String> {
     match tokens {
-        [Token::Ident(name)] => {
+        [Token::Ident(name)] if labels.contains(&name.to_ascii_uppercase()) => {
             let target = symtab
                 .get(&name.to_ascii_uppercase())
                 .ok_or_else(|| format!("unknown label `{name}`"))?
@@ -1065,7 +1073,11 @@ fn skp_target(
         [Token::Number(Num::Real(_))] => {
             Err("SKP distance must be an integer, not a real number".to_string())
         }
-        _ => Err("SKP target must be a label or an integer 0..=63".to_string()),
+        // A non-label symbol (EQU constant) or expression is a count.
+        _ => match int_value(tokens, symtab, "SKP distance")? {
+            n @ 0..=63 => Ok(n as u8),
+            n => Err(format!("SKP distance {n} out of range 0..=63")),
+        },
     }
 }
 
@@ -1093,6 +1105,7 @@ fn parse_instruction(
     index: usize,
     p: &Pending,
     symtab: &HashMap<String, Num>,
+    labels: &HashSet<String>,
 ) -> Result<Instruction, AsmError> {
     let err = |m: String| AsmError::at(p.line, &p.source_line, m);
     let groups = split_commas(&p.operands);
@@ -1231,7 +1244,7 @@ fn parse_instruction(
             need(2)?;
             Ok(Instruction::Skp {
                 cond: skp_cond(&groups[0], symtab).map_err(&err)?,
-                n: skp_target(&groups[1], symtab, index).map_err(&err)?,
+                n: skp_target(&groups[1], symtab, labels, index).map_err(&err)?,
             })
         }
         "WLDS" => {

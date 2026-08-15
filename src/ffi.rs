@@ -77,13 +77,14 @@ impl SpinFv1 {
 /// chip processes one sample per call at whatever rate the host calls
 /// it (officially supported chip behavior — time-based effects scale).
 ///
-/// Returns null if `host_rate` is negative or not finite. Free with
-/// `spinfv1_destroy`.
+/// Returns null unless `host_rate` is 0 or within 1,000..=1,000,000 Hz
+/// (any real audio host; extreme ratios would make the converter's
+/// priming and buffering unbounded). Free with `spinfv1_destroy`.
 #[unsafe(no_mangle)]
 pub extern "C" fn spinfv1_create(host_rate: f64) -> *mut SpinFv1 {
     let engine = if host_rate == 0.0 {
         Engine::Native(Fv1::new())
-    } else if host_rate.is_finite() && host_rate > 0.0 {
+    } else if (1_000.0..=1_000_000.0).contains(&host_rate) {
         match catch_unwind(|| HostedFv1::new(Fv1::new(), host_rate)) {
             Ok(hosted) => Engine::Hosted(hosted),
             Err(_) => return std::ptr::null_mut(),
@@ -139,8 +140,10 @@ pub unsafe extern "C" fn spinfv1_load_bank(
     let bytes = unsafe { std::slice::from_raw_parts(bytes, len) };
     unsafe {
         with_handle(handle, |h| {
-            let offset = program as usize * 512;
-            let Some(slot) = bytes.get(offset..offset + 512) else {
+            let slot = (program as usize)
+                .checked_mul(512)
+                .and_then(|offset| bytes.get(offset..offset.checked_add(512)?));
+            let Some(slot) = slot else {
                 h.set_error("bank too short for requested program slot");
                 return SPINFV1_ERR_PROGRAM;
             };

@@ -124,3 +124,30 @@ fn latency_is_reported_and_small() {
         "unexpected latency: {latency} host samples"
     );
 }
+
+#[test]
+fn converter_rejects_aliasing_above_chip_nyquist() {
+    // A 30 kHz tone at a 96 kHz input rate sits far above the chip's
+    // 16.384 kHz Nyquist; the down-converter's kernel must stop it.
+    let mut rs = StreamResampler::new(96_000.0, CHIP_RATE);
+    let mut out = Vec::new();
+    for i in 0..48_000 {
+        let x = (core::f64::consts::TAU * 30_000.0 * f64::from(i) / 96_000.0).sin() as f32;
+        rs.push((x, x));
+        while let Some(f) = rs.pull() {
+            out.push(f.0);
+        }
+    }
+    let settled = &out[1000..];
+    let rms = (settled
+        .iter()
+        .map(|&v| f64::from(v) * f64::from(v))
+        .sum::<f64>()
+        / settled.len() as f64)
+        .sqrt();
+    let db = 20.0 * rms.log10();
+    assert!(
+        db < -80.0,
+        "aliasing leak at {db:.1} dB (unit-amplitude tone)"
+    );
+}

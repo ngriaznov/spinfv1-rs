@@ -294,14 +294,16 @@ impl Fv1 {
                     self.acc = sat24(mul_s23(acc, i64::from(coeff)) + (i64::from(d) << 8));
                 }
                 Instruction::ChoRdal { lfo, flags } => {
-                    self.acc = match lfo {
+                    // ACC is an architectural write, so it saturates to
+                    // the 24-bit rails like every other ALU result.
+                    self.acc = sat24(i64::from(match lfo {
                         LfoSel::Sin0 => self.sin_lfo[0]
                             .value(self.lfo_reg(reg::SIN0_RANGE), flags.contains(ChoFlags::COS)),
                         LfoSel::Sin1 => self.sin_lfo[1]
                             .value(self.lfo_reg(reg::SIN1_RANGE), flags.contains(ChoFlags::COS)),
                         LfoSel::Rmp0 => self.rmp_lfo[0].value(),
                         LfoSel::Rmp1 => self.rmp_lfo[1].value(),
-                    };
+                    }));
                 }
                 Instruction::Raw(_) => {}
             }
