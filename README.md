@@ -164,7 +164,7 @@ error. Both configurations still require a global allocator
 
 ## Testing
 
-`cargo test --features ffi` runs about 160 tests in nine layers
+`cargo test --features ffi` runs about 170 tests in ten layers
 (plus the C-side sanitizer battery, `tests/c/run.sh`):
 
 1. **Spec conformance** (`tests/spec_conformance.rs`): a deliberate
@@ -216,6 +216,14 @@ error. Both configurations still require a global allocator
    full standard Spin factory corpus (`tests/data/corpus/`) captured
    from this emulator after cross-validation — inspectable, listenable
    artifacts freezing whole-program behavior.
+10. **Extended community corpus** (`tests/extended_wav.rs`,
+    `tests/programs/extended/`, `tests/data/extended/`): about 250
+    third-party FV-1 programs (attributions preserved, provenance in
+    `SOURCES.tsv`), each bit-compared against a committed WAV — 100
+    captured from the independent FV-1 virtual machine and bit-identical
+    to this emulator, the rest self-captured on chip-faithful defaults.
+    The suite is directory-driven: adding a program plus its capture
+    extends it.
 
 ## Benchmarks
 
@@ -264,5 +272,6 @@ Source-available (see [LICENSE](LICENSE)): free to use, modify and
 distribute **within open-source projects and for noncommercial purposes,
 with attribution** to this repository. **Commercial use requires prior
 written permission** from the author. The Spin Semiconductor factory
-programs under `examples/programs/` are third-party material included
+programs under `examples/programs/` and the community programs under
+`tests/programs/` are third-party material included
 for interoperability testing and remain under their original copyright.

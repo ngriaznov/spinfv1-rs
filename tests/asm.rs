@@ -879,9 +879,15 @@ fn skp_target_out_of_range_error() {
 }
 
 #[test]
-fn mask_field_rejects_real_literals() {
-    let err = assert_err_at("AND 0.5\n", 1);
-    assert!(err.message().contains("real"), "{err}");
+fn mask_field_accepts_reals_as_s23() {
+    // SpinASM packs a real mask as its S.23 encoding.
+    let p = assemble("AND 0.5\nOR -0.5\nXOR 0.9990234375\n").unwrap();
+    assert_eq!(p.instructions()[0], Instruction::And { mask: 0x40_0000 });
+    assert_eq!(p.instructions()[1], Instruction::Or { mask: 0xC0_0000 });
+    assert_eq!(p.instructions()[2], Instruction::Xor { mask: 0x7F_E000 });
+    // Out-of-range reals are still rejected.
+    let err = assert_err_at("AND 1.5\n", 1);
+    assert!(err.message().contains("S.23"), "{err}");
 }
 
 #[test]
@@ -1067,6 +1073,93 @@ fn skp_distinguishes_labels_from_equ_constants() {
         Instruction::Skp {
             cond: SkpCond::NONE,
             n: 1, // DONE is instruction 5: distance 5 - 3 - 1
+        }
+    );
+}
+
+#[test]
+fn community_program_constructs_assemble_per_spinasm() {
+    // Constructs surfaced by third-party programs, each checked against
+    // independently verified SpinASM encodings.
+    let p = assemble(
+        "
+        sof 1.0, 0x3ff          ; hex literal in a real field = raw value
+        sof 1.0, $200
+        jmp done                ; unconditional jump alias
+        wldr RMP0, 0, 0         ; raw 2-bit amplitude code
+        wldr RMP1, -16384, 3
+        wldr rmp0, 0.999, 4096  ; real frequency, scaled by 32768
+        jam 2                   ; CHO-style ramp numbering
+        jam 3
+ done:  nop nop nop             ; padding run
+        cho rdal, 8             ; numeric cosine selectors
+        cho rdal, COS1
+        ",
+    )
+    .unwrap();
+    let ins = p.instructions();
+    assert_eq!(
+        ins[0],
+        Instruction::Sof {
+            c: coeff::s1_14(1.0),
+            d: 0x3FF,
+        }
+    );
+    assert_eq!(
+        ins[1],
+        Instruction::Sof {
+            c: coeff::s1_14(1.0),
+            d: 0x200,
+        }
+    );
+    assert_eq!(
+        ins[2],
+        Instruction::Skp {
+            cond: SkpCond::NONE,
+            n: 5, // over the three WLDRs and two JAMs
+        }
+    );
+    assert_eq!(
+        ins[3],
+        Instruction::Wldr {
+            lfo: false,
+            freq: 0,
+            amp: RampAmp::Amp4096,
+        }
+    );
+    assert_eq!(
+        ins[4],
+        Instruction::Wldr {
+            lfo: true,
+            freq: -16384,
+            amp: RampAmp::Amp512,
+        }
+    );
+    assert_eq!(
+        ins[5],
+        Instruction::Wldr {
+            lfo: false,
+            freq: 32735, // round(0.999 * 32768)
+            amp: RampAmp::Amp4096,
+        }
+    );
+    assert_eq!(ins[6], Instruction::Jam { lfo: false });
+    assert_eq!(ins[7], Instruction::Jam { lfo: true });
+    assert_eq!(ins[8], Instruction::NOP);
+    assert_eq!(ins[9], Instruction::NOP);
+    assert_eq!(ins[10], Instruction::NOP);
+    assert_eq!(
+        ins[11],
+        Instruction::ChoRdal {
+            lfo: LfoSel::Sin0,
+            flags: ChoFlags::REG | ChoFlags::COS, // bare RDAL gets REG
+        }
+    );
+    assert_eq!(
+        ins[12],
+        Instruction::ChoRdal {
+            lfo: LfoSel::Sin1,
+            flags: ChoFlags::REG | ChoFlags::COS,
         }
     );
 }

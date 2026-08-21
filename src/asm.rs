@@ -219,12 +219,32 @@ pub fn assemble(source: &str) -> Result<Program, AsmError> {
                 format!("program exceeds {PROGRAM_LEN} instructions"),
             ));
         }
-        pending.push(Pending {
-            line,
-            source_line: text.to_string(),
-            mnemonic: first_upper,
-            operands: tokens[1..].to_vec(),
-        });
+        // A line of repeated bare `nop`s is that many NOPs (SpinASM
+        // accepts `nop nop nop` as padding).
+        let nop_run = first_upper == "NOP"
+            && tokens[1..]
+                .iter()
+                .all(|t| matches!(t, Token::Ident(w) if w.eq_ignore_ascii_case("nop")));
+        let (count, operands) = if nop_run {
+            (tokens.len(), Vec::new())
+        } else {
+            (1, tokens[1..].to_vec())
+        };
+        for _ in 0..count {
+            if pending.len() >= PROGRAM_LEN {
+                return Err(AsmError::at(
+                    line,
+                    text,
+                    format!("program exceeds {PROGRAM_LEN} instructions"),
+                ));
+            }
+            pending.push(Pending {
+                line,
+                source_line: text.to_string(),
+                mnemonic: first_upper.clone(),
+                operands: operands.clone(),
+            });
+        }
     }
 
     let instructions = pending
@@ -252,8 +272,8 @@ struct Pending {
 /// line) rather than a label/symbol definition.
 const MNEMONICS: &[&str] = &[
     "RDA", "RMPA", "WRA", "WRAP", "RDAX", "RDFX", "WRAX", "WRHX", "WRLX", "MAXX", "MULX", "LOG",
-    "EXP", "SOF", "AND", "OR", "XOR", "SKP", "WLDS", "WLDR", "JAM", "CHO", "NOP", "CLR", "NOT",
-    "ABSA", "LDAX", "RAW",
+    "EXP", "SOF", "AND", "OR", "XOR", "SKP", "JMP", "WLDS", "WLDR", "JAM", "CHO", "NOP", "CLR",
+    "NOT", "ABSA", "LDAX", "RAW",
 ];
 
 /// Whether `upper` (already upper-cased) names a real mnemonic or pseudo-op.
@@ -384,6 +404,11 @@ impl Num {
 
 #[derive(Clone, Debug, PartialEq)]
 enum Token {
+    /// Hex (`$3F`, `0x3F`) or binary (`%0101`) literal. Evaluates like an
+    /// integer everywhere, but a coefficient operand consisting of exactly
+    /// one of these is a raw field value, not a real to quantize
+    /// (SpinASM semantics: `SOF 1.0,$3FF` packs 0x3FF directly).
+    RawNumber(i64),
     Ident(String),
     Number(Num),
     Comma,
@@ -494,7 +519,7 @@ fn tokenize(s: &str) -> Result<Vec<Token>, String> {
                 if start == i {
                     return Err("expected hex digits after '$'".to_string());
                 }
-                out.push(Token::Number(Num::Int(parse_radix(&chars[start..i], 16)?)));
+                out.push(Token::RawNumber(parse_radix(&chars[start..i], 16)?));
             }
             '%' => {
                 i += 1;
@@ -511,7 +536,7 @@ fn tokenize(s: &str) -> Result<Vec<Token>, String> {
                 }
                 let n = i64::from_str_radix(&digits, 2)
                     .map_err(|_| "binary literal too large".to_string())?;
-                out.push(Token::Number(Num::Int(n)));
+                out.push(Token::RawNumber(n));
             }
             '0' if matches!(chars.get(i + 1), Some('x' | 'X')) => {
                 i += 2;
@@ -522,7 +547,7 @@ fn tokenize(s: &str) -> Result<Vec<Token>, String> {
                 if start == i {
                     return Err("expected hex digits after '0x'".to_string());
                 }
-                out.push(Token::Number(Num::Int(parse_radix(&chars[start..i], 16)?)));
+                out.push(Token::RawNumber(parse_radix(&chars[start..i], 16)?));
             }
             c if c.is_ascii_digit() || c == '.' => {
                 let start = i;
@@ -796,6 +821,10 @@ fn eval_unary(
             *pos += 1;
             Ok(v)
         }
+        Some(&Token::RawNumber(n)) => {
+            *pos += 1;
+            Ok(Num::Int(n))
+        }
         Some(&Token::Number(n)) => {
             *pos += 1;
             Ok(n)
@@ -862,9 +891,19 @@ fn reg_value(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<u8, Stri
 }
 
 fn mask_value(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<u32, String> {
-    let n = eval(tokens, symtab)?.as_int().ok_or_else(|| {
-        "mask must be an integer (hex, binary, or decimal), not a real number".to_string()
-    })?;
+    // SpinASM also accepts a real here, packed as its S.23 encoding
+    // (`OR -0.5` is the mask 0xC00000).
+    let n = match eval(tokens, symtab)? {
+        Num::Int(n) => n,
+        Num::Real(x) => {
+            if !(-1.0..=1.0).contains(&x) {
+                return Err(format!(
+                    "real mask {x} is out of the S.23 range [-1.0, 1.0]"
+                ));
+            }
+            i64::from(coeff::s_23(x))
+        }
+    };
     if (-0x80_0000..=0xFF_FFFF).contains(&n) {
         Ok((n as u32) & 0xFF_FFFF)
     } else {
@@ -906,7 +945,28 @@ fn coeff_value(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<f64, S
     Ok(eval(tokens, symtab)?.as_f64())
 }
 
+/// A coefficient operand that is exactly one hex/binary literal is a raw
+/// field value (SpinASM semantics: `SOF 1.0,$3FF` packs 0x3FF directly).
+/// Values at or above half the field range read as two's-complement
+/// negatives, mirroring the packed encoding.
+fn raw_field(tokens: &[Token], bits: u32) -> Option<Result<i16, String>> {
+    let [Token::RawNumber(n)] = tokens else {
+        return None;
+    };
+    let (n, span) = (*n, 1i64 << bits);
+    Some(if (0..span).contains(&n) {
+        Ok(if n >= span / 2 { n - span } else { n } as i16)
+    } else {
+        Err(format!(
+            "raw coefficient {n:#X} does not fit a {bits}-bit field"
+        ))
+    })
+}
+
 fn coeff_s1_14(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
+    if let Some(raw) = raw_field(tokens, 16) {
+        return raw;
+    }
     quantize(
         coeff_value(tokens, symtab)?,
         16384.0,
@@ -919,6 +979,9 @@ fn coeff_s1_14(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, S
 }
 
 fn coeff_s1_9(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
+    if let Some(raw) = raw_field(tokens, 11) {
+        return raw;
+    }
     quantize(
         coeff_value(tokens, symtab)?,
         512.0,
@@ -931,6 +994,9 @@ fn coeff_s1_9(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, St
 }
 
 fn coeff_s_10(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
+    if let Some(raw) = raw_field(tokens, 11) {
+        return raw;
+    }
     quantize(
         coeff_value(tokens, symtab)?,
         1024.0,
@@ -943,6 +1009,9 @@ fn coeff_s_10(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, St
 }
 
 fn coeff_s4_6(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
+    if let Some(raw) = raw_field(tokens, 11) {
+        return raw;
+    }
     quantize(
         coeff_value(tokens, symtab)?,
         64.0,
@@ -955,6 +1024,9 @@ fn coeff_s4_6(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, St
 }
 
 fn coeff_s_15(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
+    if let Some(raw) = raw_field(tokens, 16) {
+        return raw;
+    }
     quantize(
         coeff_value(tokens, symtab)?,
         32768.0,
@@ -982,10 +1054,14 @@ fn lfo_bit(tokens: &[Token], symtab: &HashMap<String, Num>, kind: LfoKind) -> Re
             _ => {}
         }
     }
-    match int_value(tokens, symtab, "LFO selector")? {
-        0 => Ok(false),
-        1 => Ok(true),
-        n => Err(format!("LFO selector {n} out of range (expected 0 or 1)")),
+    match (kind, int_value(tokens, symtab, "LFO selector")?) {
+        (_, 0) => Ok(false),
+        (_, 1) => Ok(true),
+        // SpinASM also takes the CHO-style numbering for the ramps
+        // (RMP0 = 2, RMP1 = 3), as in `JAM 2`.
+        (LfoKind::Rmp, 2) => Ok(false),
+        (LfoKind::Rmp, 3) => Ok(true),
+        (_, n) => Err(format!("LFO selector {n} out of range (expected 0 or 1)")),
     }
 }
 
@@ -1068,8 +1144,12 @@ fn skp_target(
             }
             Ok(dist as u8)
         }
-        [Token::Number(Num::Int(n))] if (0..=63).contains(n) => Ok(*n as u8),
-        [Token::Number(Num::Int(n))] => Err(format!("SKP distance {n} out of range 0..=63")),
+        [Token::Number(Num::Int(n))] | [Token::RawNumber(n)] if (0..=63).contains(n) => {
+            Ok(*n as u8)
+        }
+        [Token::Number(Num::Int(n))] | [Token::RawNumber(n)] => {
+            Err(format!("SKP distance {n} out of range 0..=63"))
+        }
         [Token::Number(Num::Real(_))] => {
             Err("SKP distance must be an integer, not a real number".to_string())
         }
@@ -1081,8 +1161,27 @@ fn skp_target(
     }
 }
 
+/// `WLDR`'s frequency: an integer register value, or (SpinASM semantics)
+/// a real scaled by 32768 (`0.999` stores 32735).
+fn wldr_freq(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
+    let n = match eval(tokens, symtab)? {
+        Num::Int(n) => n,
+        Num::Real(x) => (x * 32768.0).round() as i64,
+    };
+    if (-32768..=32767).contains(&n) {
+        Ok(n as i16)
+    } else {
+        Err(format!("WLDR frequency {n} is out of range -32768..=32767"))
+    }
+}
+
 fn wldr_amp(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<RampAmp, String> {
     match int_value(tokens, symtab, "WLDR amplitude")? {
+        // Raw 2-bit range codes, as SpinASM also accepts.
+        0 => Ok(RampAmp::Amp4096),
+        1 => Ok(RampAmp::Amp2048),
+        2 => Ok(RampAmp::Amp1024),
+        3 => Ok(RampAmp::Amp512),
         4096 => Ok(RampAmp::Amp4096),
         2048 => Ok(RampAmp::Amp2048),
         1024 => Ok(RampAmp::Amp1024),
@@ -1247,6 +1346,14 @@ fn parse_instruction(
                 n: skp_target(&groups[1], symtab, labels, index).map_err(&err)?,
             })
         }
+        // SpinASM's unconditional jump: `JMP target` = `SKP 0,target`.
+        "JMP" => {
+            need(1)?;
+            Ok(Instruction::Skp {
+                cond: SkpCond::NONE,
+                n: skp_target(&groups[0], symtab, labels, index).map_err(&err)?,
+            })
+        }
         "WLDS" => {
             need(3)?;
             Ok(Instruction::Wlds {
@@ -1261,8 +1368,7 @@ fn parse_instruction(
             need(3)?;
             Ok(Instruction::Wldr {
                 lfo: lfo_bit(&groups[0], symtab, LfoKind::Rmp).map_err(&err)?,
-                freq: int_in_range(&groups[1], symtab, -32768, 32767, "WLDR frequency")
-                    .map_err(&err)? as i16,
+                freq: wldr_freq(&groups[1], symtab).map_err(&err)?,
                 amp: wldr_amp(&groups[2], symtab).map_err(&err)?,
             })
         }
@@ -1352,7 +1458,13 @@ fn parse_cho(groups: &[Vec<Token>], symtab: &HashMap<String, Num>) -> Result<Ins
                 [Token::Ident(name)] if name.eq_ignore_ascii_case("COS1") => {
                     (LfoSel::Sin1, ChoFlags::COS)
                 }
-                _ => (cho_lfo(&groups[1], symtab)?, ChoFlags(0)),
+                // SpinASM's numeric selectors 8/9 (the COS0/COS1
+                // constants) name the cosine outputs.
+                _ => match int_value(&groups[1], symtab, "CHO LFO selector") {
+                    Ok(8) => (LfoSel::Sin0, ChoFlags::COS),
+                    Ok(9) => (LfoSel::Sin1, ChoFlags::COS),
+                    _ => (cho_lfo(&groups[1], symtab)?, ChoFlags(0)),
+                },
             };
             // SpinASM assembles a bare `CHO RDAL, lfo` with the REG bit
             // set (it has no effect on RDAL's result); match that
@@ -1408,6 +1520,9 @@ fn predefined_symbols() -> HashMap<String, Num> {
     m.insert("SIN1".to_string(), Num::Int(1));
     m.insert("RMP0".to_string(), Num::Int(2));
     m.insert("RMP1".to_string(), Num::Int(3));
+    // Cosine outputs for `CHO RDAL` (SpinASM's COS0/COS1 constants).
+    m.insert("COS0".to_string(), Num::Int(8));
+    m.insert("COS1".to_string(), Num::Int(9));
     // SKP condition flags.
     m.insert("NEG".to_string(), Num::Int(i64::from(SkpCond::NEG.0)));
     m.insert("GEZ".to_string(), Num::Int(i64::from(SkpCond::GEZ.0)));
@@ -1449,9 +1564,9 @@ mod tests {
                 Token::Minus,
                 Token::Number(Num::Real(0.75)),
                 Token::Number(Num::Real(0.5)),
-                Token::Number(Num::Int(0x3F)),
-                Token::Number(Num::Int(0x3F)),
-                Token::Number(Num::Int(0b0101_1100)),
+                Token::RawNumber(0x3F),
+                Token::RawNumber(0x3F),
+                Token::RawNumber(0b0101_1100),
             ]
         );
     }

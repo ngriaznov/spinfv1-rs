@@ -31,7 +31,7 @@
 
 mod common;
 
-use common::{MICRO, test_signal};
+use common::{MICRO, compare_frames, read_wav_s23, test_signal, write_wav_s23};
 use spinfv1::{Fv1, assemble};
 
 /// Micro-programs with an externally captured reference WAV (subset of
@@ -89,74 +89,6 @@ fn run_program(source: &str, reference_mode: bool) -> Vec<(i32, i32)> {
         .collect()
 }
 
-/// Minimal reader for the exact WAV shape we commit: RIFF/WAVE, PCM
-/// `fmt ` chunk (24-bit stereo), then a `data` chunk of little-endian
-/// signed 24-bit frames, returned as raw S.23 (l, r) pairs.
-fn read_wav_s23(path: &std::path::Path) -> Vec<(i32, i32)> {
-    let b = std::fs::read(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-    assert_eq!(&b[0..4], b"RIFF", "not a RIFF file");
-    assert_eq!(&b[8..12], b"WAVE", "not a WAVE file");
-    let mut pos = 12;
-    let mut fmt_ok = false;
-    let mut data: Option<&[u8]> = None;
-    while pos + 8 <= b.len() {
-        let id = &b[pos..pos + 4];
-        let len = u32::from_le_bytes(b[pos + 4..pos + 8].try_into().unwrap()) as usize;
-        let body = &b[pos + 8..pos + 8 + len];
-        match id {
-            b"fmt " => {
-                let channels = u16::from_le_bytes(body[2..4].try_into().unwrap());
-                let bits = u16::from_le_bytes(body[14..16].try_into().unwrap());
-                assert_eq!((channels, bits), (2, 24), "expected 24-bit stereo PCM");
-                fmt_ok = true;
-            }
-            b"data" => data = Some(body),
-            _ => {}
-        }
-        pos += 8 + len + (len & 1);
-    }
-    assert!(fmt_ok, "missing fmt chunk");
-    let data = data.expect("missing data chunk");
-    data.chunks_exact(6)
-        .map(|f| {
-            let s24 = |c: &[u8]| (i32::from_le_bytes([0, c[0], c[1], c[2]])) >> 8;
-            (s24(&f[0..3]), s24(&f[3..6]))
-        })
-        .collect()
-}
-
-/// Writer mirroring `read_wav_s23`: 24-bit stereo PCM at the chip rate.
-fn write_wav_s23(path: &std::path::Path, frames: &[(i32, i32)]) {
-    let mut data = Vec::with_capacity(frames.len() * 6);
-    for &(l, r) in frames {
-        data.extend_from_slice(&l.to_le_bytes()[0..3]);
-        data.extend_from_slice(&r.to_le_bytes()[0..3]);
-    }
-    let mut b = Vec::with_capacity(44 + data.len());
-    b.extend_from_slice(b"RIFF");
-    b.extend_from_slice(&(36 + data.len() as u32).to_le_bytes());
-    b.extend_from_slice(b"WAVE");
-    b.extend_from_slice(b"fmt ");
-    b.extend_from_slice(&16u32.to_le_bytes());
-    b.extend_from_slice(&1u16.to_le_bytes()); // PCM
-    b.extend_from_slice(&2u16.to_le_bytes()); // stereo
-    b.extend_from_slice(&32_768u32.to_le_bytes()); // chip rate
-    b.extend_from_slice(&(32_768u32 * 6).to_le_bytes());
-    b.extend_from_slice(&6u16.to_le_bytes());
-    b.extend_from_slice(&24u16.to_le_bytes());
-    b.extend_from_slice(b"data");
-    b.extend_from_slice(&(data.len() as u32).to_le_bytes());
-    b.extend_from_slice(&data);
-    std::fs::write(path, b).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-}
-
-fn compare(stem: &str, got: &[(i32, i32)], expected: &[(i32, i32)]) {
-    assert_eq!(got.len(), expected.len(), "{stem}: frame count");
-    for (n, (g, e)) in got.iter().zip(expected).enumerate() {
-        assert_eq!(g, e, "{stem}: sample {n} diverges from the committed WAV");
-    }
-}
-
 #[test]
 fn outputs_bit_match_reference_captures() {
     for stem in REFERENCE_CAPTURED {
@@ -167,7 +99,7 @@ fn outputs_bit_match_reference_captures() {
             .1;
         let expected = read_wav_s23(&data_dir().join(format!("{stem}.wav")));
         let got = run_program(source, true);
-        compare(stem, &got[..expected.len().min(got.len())], &expected);
+        compare_frames(stem, &got[..expected.len().min(got.len())], &expected);
     }
 }
 
@@ -187,7 +119,7 @@ fn corpus_outputs_bit_match_committed_wavs() {
         if write_mode {
             write_wav_s23(&wav, &got);
         } else {
-            compare(stem, &got, &read_wav_s23(&wav));
+            compare_frames(stem, &got, &read_wav_s23(&wav));
         }
     }
 }

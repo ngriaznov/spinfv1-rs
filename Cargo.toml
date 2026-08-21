@@ -11,7 +11,7 @@ categories = ["emulators", "multimedia::audio"]
 readme = "README.md"
 # Keep the published crate lean: test fixtures, listening corpus, and
 # repository plumbing stay in the repo only.
-exclude = ["/tests/data", "/examples/programs", "/.githooks", "/.github"]
+exclude = ["/tests/data", "/tests/programs", "/examples/programs", "/.githooks", "/.github"]
 
 [package.metadata.docs.rs]
 features = ["ffi"]

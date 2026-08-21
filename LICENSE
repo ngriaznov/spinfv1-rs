@@ -8,9 +8,10 @@ Copyright (c) 2026 ngriaznov
    "Software" means this repository's source code, documentation, and
    example programs authored by the copyright holder, and derivative
    works thereof. (Files under examples/programs/ that are marked as
-   Spin Semiconductor factory programs are third-party material included
-   for interoperability testing; their copyright remains with their
-   original authors and they are not licensed by this document.)
+   Spin Semiconductor factory programs, and the community programs under
+   tests/programs/, are third-party material included for
+   interoperability testing; their copyright remains with their original
+   authors and they are not licensed by this document.)
 
    "Open-Source Project" means a software project whose complete source
    code is publicly available under a license approved by the Open
