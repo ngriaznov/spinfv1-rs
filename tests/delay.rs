@@ -216,7 +216,14 @@ fn randomize_delay_ram_is_deterministic_and_readable() {
     );
 
     // A program that only reads never-written RAM hears the pattern.
-    let program = spinfv1::assemble("rda 1000, 1.0\nwrax DACL, 0.0\n").unwrap();
+    let program = spinfv1::Program::from_instructions(&[
+        Instruction::Rda {
+            addr: 1000,
+            c: coeff::s1_9(1.0),
+        },
+        OUT,
+    ])
+    .unwrap();
     a.load_program(&program);
     a.randomize_delay_ram(7);
     let mut heard = false;
@@ -233,8 +240,19 @@ fn randomize_delay_ram_is_deterministic_and_readable() {
 
 #[test]
 fn load_can_keep_delay_ram_for_spillover() {
-    let write = spinfv1::assemble("ldax ADCL\nwra 100, 0.0\n").unwrap();
-    let read = spinfv1::assemble("rda 101, 1.0\nwrax DACL, 0.0\n").unwrap();
+    let write = spinfv1::Program::from_instructions(&[
+        Instruction::ldax(reg::ADCL),
+        Instruction::Wra { addr: 100, c: 0 },
+    ])
+    .unwrap();
+    let read = spinfv1::Program::from_instructions(&[
+        Instruction::Rda {
+            addr: 101,
+            c: coeff::s1_9(1.0),
+        },
+        OUT,
+    ])
+    .unwrap();
 
     // Default: a load clears delay RAM, so the reader hears silence.
     let mut chip = spinfv1::Fv1::new();
@@ -288,7 +306,8 @@ fn randomize_registers_covers_general_purpose_only() {
 
 #[test]
 fn adc_noise_floor_is_deterministic_and_small() {
-    let program = spinfv1::assemble("rdax ADCL, 1.0\nwrax DACL, 0.0\n").unwrap();
+    let program =
+        spinfv1::Program::from_instructions(&[Instruction::ldax(reg::ADCL), OUT]).unwrap();
     let mut chip = spinfv1::Fv1::new();
     chip.set_adc_noise(true, 42);
     chip.load_program(&program);
