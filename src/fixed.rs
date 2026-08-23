@@ -13,7 +13,7 @@
 //! | S1.14  | 16   | 14         | `[-2.0, +2.0)`     | RDAX/WRAX/... , LOG/EXP/SOF C |
 //! | S1.9   | 11   | 9          | `[-2.0, +2.0)`     | RDA/RMPA/WRA/WRAP C        |
 //! | S.10   | 11   | 10         | `[-1.0, +1.0)`     | SOF/EXP/LOG D              |
-//! | S4.6   | 11   | 6          | `[-16.0, +16.0)`   | LOG D in raw log2 units    |
+//! | S4.6   | 11   | 6          | `[-16.0, +16.0)`   | LOG D field in raw log2 units (source literals are S.10) |
 //! | S.15   | 16   | 15         | `[-1.0, +1.0)`     | CHO SOF D, WLDS amplitude  |
 //! | S4.19  | 24   | 19         | `[-16.0, +16.0)`   | ACC as seen by LOG/EXP     |
 
@@ -112,9 +112,10 @@ pub mod coeff {
 
     /// S4.6: 11-bit field, `[-16.0, 15.984375]`.
     ///
-    /// The same bits as LOG's S.10 offset viewed in raw log2 units
-    /// (`x` here equals `16 *` the S.10 value); SpinASM source text uses
-    /// the S.10 convention, which [`s_10`] implements.
+    /// LOG's D field viewed in raw log2 units — the same bits as the
+    /// S.10 source literal times 16 (`s4_6(x)` == `s_10(x / 16)`).
+    /// SpinASM source text uses the S.10 convention, which [`s_10`]
+    /// implements; use this helper to build a `d` from a log2 offset.
     #[must_use]
     pub fn s4_6(x: f64) -> i16 {
         crate::math::round(x * 64.0).clamp(-1024.0, 1023.0) as i16

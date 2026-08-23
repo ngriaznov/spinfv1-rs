@@ -311,7 +311,7 @@ fn every_instruction_and_pseudo_op_assembles() {
         WRLX   REG4, 0.75
         MAXX   REG5, 1.0
         MULX   REG6
-        LOG    1.0, 2.0
+        LOG    1.0, 0.5
         EXP    1.0, 0.5
         SOF    1.0, -0.5
         AND    $7FFFFF
@@ -377,7 +377,7 @@ fn every_instruction_and_pseudo_op_assembles() {
         Instruction::Mulx { reg: reg::user(6) },
         Instruction::Log {
             c: coeff::s1_14(1.0),
-            d: coeff::s4_6(2.0),
+            d: coeff::s_10(0.5),
         },
         Instruction::Exp {
             c: coeff::s1_14(1.0),
@@ -562,12 +562,22 @@ fn s_10_shorthands() {
     assert_eq!(c, 16384); // S1.14: 1.0 is exactly representable.
     assert_eq!(d, 1023); // S.10 shorthand: 1.0 -> max representable.
 
-    // LOG's D is S4.6 (SpinASM user manual), so its shorthand ceiling is 16.0.
-    let p = assemble("LOG 1.0, 16.0").unwrap();
+    // LOG's D is quantized S.10 like SOF/EXP's (SpinASM emits raw 963
+    // for `LOG 1,0.94`), so its shorthand ceiling is 1.0 too.
+    let p = assemble("LOG 1.0, 1.0").unwrap();
     let Instruction::Log { d, .. } = p.instructions()[0] else {
         panic!("expected LOG")
     };
-    assert_eq!(d, 1023); // S4.6 shorthand: 16.0 -> max representable.
+    assert_eq!(d, 1023); // S.10 shorthand: 1.0 -> max representable.
+    let err = assemble("LOG 1.0, 16.0").unwrap_err();
+    assert!(err.message().contains("out of range"), "{err}");
+
+    // Spin's noise-expander idiom: 0.94 lands at raw 963 (+15.05 log2).
+    let p = assemble("LOG 1, 0.94").unwrap();
+    let Instruction::Log { d, .. } = p.instructions()[0] else {
+        panic!("expected LOG")
+    };
+    assert_eq!(d, 963);
 }
 
 #[test]

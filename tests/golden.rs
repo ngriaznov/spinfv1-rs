@@ -52,7 +52,7 @@ const POTS: [f32; 3] = [0.5, 0.25, 1.0];
 const MICRO_HASHES: &[(&str, u64)] = &[
     ("gain_sof", 0xF8AA93EAB84ADECE),
     ("register_filters", 0x5241A7D77DD1EB8E),
-    ("log_exp", 0x3FB57C6DB2F873D2),
+    ("log_exp", 0x7284382E60565467),
     ("bitops_skp", 0xD452947D0885CD79),
     ("delay_feedback", 0xAF4C56CE4FF9341E),
     ("addr_ptr", 0x31BEA9FC99EB0605),

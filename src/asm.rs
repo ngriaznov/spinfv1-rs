@@ -21,8 +21,8 @@
 //! write the conventional round-number spelling of a format's upper bound
 //! even though it isn't exactly representable (e.g. `2.0` for an S1.14 or
 //! S1.9 field whose true maximum is `1.99993896484375`/`1.998046875`,
-//! `1.0` for S.10/S.15, `16.0` for LOG's S4.6 offset). This assembler follows that
-//! convention: a literal exactly equal to `2.0`/`1.0`/`16.0` (as
+//! `1.0` for S.10/S.15). This assembler follows that
+//! convention: a literal exactly equal to `2.0`/`1.0` (as
 //! appropriate for the field) is accepted and mapped to the format's
 //! largest representable value; any other out-of-range literal is an error.
 //!
@@ -1030,21 +1030,6 @@ fn coeff_s_10(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, St
     )
 }
 
-fn coeff_s4_6(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
-    if let Some(raw) = raw_field(tokens, 11) {
-        return raw;
-    }
-    quantize(
-        coeff_value(tokens, symtab)?,
-        64.0,
-        -1024,
-        1023,
-        16.0,
-        "S4.6",
-        coeff::s4_6,
-    )
-}
-
 fn coeff_s_15(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
     if let Some(raw) = raw_field(tokens, 16) {
         return raw;
@@ -1324,11 +1309,16 @@ fn parse_instruction(
             need(2)?;
             Ok(Instruction::Log {
                 c: coeff_s1_14(&groups[0], symtab).map_err(&err)?,
-                // SpinASM user manual, LOG: D is entered as Real(S4.6), range
-                // -16 to +15.999998. (The knowledge-base cheat sheet lists
-                // "-1 to +0.999023" for LOG's K2 — a copy of EXP's row;
-                // the tool manual wins here.)
-                d: coeff_s4_6(&groups[1], symtab).map_err(&err)?,
+                // SpinASM quantizes LOG's D like SOF/EXP's: S.10, -1 to
+                // +0.999023 (the knowledge-base cheat sheet row; verified
+                // against SpinASM-validated assembler output, where
+                // `LOG 1,0.94` emits raw 963, not the 60 an S4.6 read of
+                // the user manual's "Real(S4.6)" note would give). The
+                // hardware adds the 11-bit field in the S4.19 log domain,
+                // so the entered value acts ×16 in log2 units — Spin's
+                // noise-expander idiom `LOG 1,0.94` / `EXP 1,0` (gain
+                // 2^15.04) depends on this.
+                d: coeff_s_10(&groups[1], symtab).map_err(&err)?,
             })
         }
         "EXP" => {
