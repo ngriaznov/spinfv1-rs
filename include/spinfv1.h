@@ -78,6 +78,12 @@ int32_t spinfv1_set_delay_quantization(SpinFv1 *handle, int32_t enabled);
  * never-written regions as a noise source need this after loading. */
 int32_t spinfv1_randomize_delay_ram(SpinFv1 *handle, uint32_t seed);
 
+/* Fill the general-purpose registers (REG0..=REG31) with a deterministic
+ * pseudo-random pattern, like uninitialized power-up state. Programs
+ * seeding a software noise generator from a register they never wrote
+ * need this after loading. */
+int32_t spinfv1_randomize_registers(SpinFv1 *handle, uint32_t seed);
+
 /* Process one stereo frame (inputs nominally in -1..1). Real-time
  * safe. On error the outputs are written as silence. */
 int32_t spinfv1_process(SpinFv1 *handle, float in_l, float in_r,

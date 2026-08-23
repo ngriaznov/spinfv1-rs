@@ -230,3 +230,18 @@ fn randomize_delay_ram_is_deterministic_and_readable() {
     b.randomize_delay_ram(8);
     assert_ne!(a.delay_ram(), b.delay_ram());
 }
+
+#[test]
+fn randomize_registers_covers_general_purpose_only() {
+    let mut chip = spinfv1::Fv1::new();
+    chip.randomize_registers(3);
+    assert!((0x20..0x40).any(|r| chip.register(r) != 0));
+    for r in 0..0x20u8 {
+        assert_eq!(chip.register(r), 0);
+    }
+    let mut again = spinfv1::Fv1::new();
+    again.randomize_registers(3);
+    for r in 0x20..0x40u8 {
+        assert_eq!(chip.register(r), again.register(r));
+    }
+}

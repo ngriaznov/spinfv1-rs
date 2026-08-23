@@ -117,6 +117,19 @@ impl Fv1 {
         }
     }
 
+    /// Fill the general-purpose registers (REG0..=REG31) with a
+    /// deterministic pseudo-random pattern, like uninitialized power-up
+    /// state. Programs that seed a software noise generator from a
+    /// register they never wrote need this; a zero seed keeps such
+    /// generators stuck at silence.
+    pub fn randomize_registers(&mut self, seed: u32) {
+        let mut state = seed ^ 0x9E37_79B9;
+        for reg in &mut self.regs[0x20..0x40] {
+            state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            *reg = ((state >> 8) as i32) << 8 >> 8;
+        }
+    }
+
     /// Set potentiometer `idx` (0..=2) to `value` in `[0.0, 1.0]`.
     ///
     /// The value is taken as given at full S.23 resolution: input

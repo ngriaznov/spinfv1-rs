@@ -259,6 +259,24 @@ pub unsafe extern "C" fn spinfv1_randomize_delay_ram(handle: *mut SpinFv1, seed:
     }
 }
 
+/// Fill the general-purpose registers (REG0..=REG31) with a
+/// deterministic pseudo-random pattern, like uninitialized power-up
+/// state. Programs seeding a software noise generator from a register
+/// they never wrote need this after loading.
+///
+/// # Safety
+///
+/// `handle` must be a live handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn spinfv1_randomize_registers(handle: *mut SpinFv1, seed: u32) -> i32 {
+    unsafe {
+        with_handle(handle, |h| {
+            h.engine.chip_mut().randomize_registers(seed);
+            SPINFV1_OK
+        })
+    }
+}
+
 /// Process one stereo frame (inputs nominally in -1..=1). Real-time
 /// safe. On error the outputs are written as silence.
 ///
