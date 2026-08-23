@@ -151,12 +151,16 @@ impl Fv1 {
     /// deterministic pseudo-random pattern, like uninitialized power-up
     /// state. Programs that seed a software noise generator from a
     /// register they never wrote need this; a zero seed keeps such
-    /// generators stuck at silence.
+    /// generators stuck at silence. The values are quiet (about
+    /// -60 dBFS) for the same reason as
+    /// [`randomize_delay_ram`](Self::randomize_delay_ram): generator
+    /// seeds only need random bits, while a full-scale value dropped
+    /// into a filter or feedback state rings loudly through the program.
     pub fn randomize_registers(&mut self, seed: u32) {
         let mut state = seed ^ 0x9E37_79B9;
         for reg in &mut self.regs[0x20..0x40] {
             state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-            *reg = ((state >> 8) as i32) << 8 >> 8;
+            *reg = ((state >> 8) as i32) << 8 >> 18;
         }
     }
 

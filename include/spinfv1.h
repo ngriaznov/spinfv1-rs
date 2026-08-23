@@ -86,9 +86,9 @@ int32_t spinfv1_set_clear_delay_on_load(SpinFv1 *handle, int32_t enabled);
 int32_t spinfv1_randomize_delay_ram(SpinFv1 *handle, uint32_t seed);
 
 /* Fill the general-purpose registers (REG0..=REG31) with a deterministic
- * pseudo-random pattern, like uninitialized power-up state. Programs
- * seeding a software noise generator from a register they never wrote
- * need this after loading. */
+ * quiet (~-60 dBFS) pseudo-random pattern, like uninitialized power-up
+ * state. Programs seeding a software noise generator from a register
+ * they never wrote need this after loading. */
 int32_t spinfv1_randomize_registers(SpinFv1 *handle, uint32_t seed);
 
 /* Model the ADC noise floor (enabled != 0): a deterministic dither of up
