@@ -241,6 +241,24 @@ pub unsafe extern "C" fn spinfv1_set_delay_quantization(handle: *mut SpinFv1, en
     }
 }
 
+/// Fill delay RAM with a deterministic pseudo-random pattern, like the
+/// uninitialized SRAM of a freshly powered chip. Programs that read
+/// never-written regions as a noise source need this; call it after
+/// loading such a program.
+///
+/// # Safety
+///
+/// `handle` must be a live handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn spinfv1_randomize_delay_ram(handle: *mut SpinFv1, seed: u32) -> i32 {
+    unsafe {
+        with_handle(handle, |h| {
+            h.engine.chip_mut().randomize_delay_ram(seed);
+            SPINFV1_OK
+        })
+    }
+}
+
 /// Process one stereo frame (inputs nominally in -1..=1). Real-time
 /// safe. On error the outputs are written as silence.
 ///

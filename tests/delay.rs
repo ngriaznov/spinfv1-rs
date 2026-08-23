@@ -200,3 +200,33 @@ fn reset_clears_delay_ram() {
         assert_eq!(fv1.process_raw(0, 0).0, 0, "stale echo after reset at {n}");
     }
 }
+
+#[test]
+fn randomize_delay_ram_is_deterministic_and_readable() {
+    let mut a = spinfv1::Fv1::new();
+    let mut b = spinfv1::Fv1::new();
+    a.randomize_delay_ram(7);
+    b.randomize_delay_ram(7);
+    assert_eq!(a.delay_ram(), b.delay_ram());
+    assert!(a.delay_ram().iter().any(|&v| v != 0));
+    assert!(
+        a.delay_ram()
+            .iter()
+            .all(|&v| (-(1 << 23)..1 << 23).contains(&v))
+    );
+
+    // A program that only reads never-written RAM hears the pattern.
+    let program = spinfv1::assemble("rda 1000, 1.0\nwrax DACL, 0.0\n").unwrap();
+    a.load_program(&program);
+    a.randomize_delay_ram(7);
+    let mut heard = false;
+    for _ in 0..64 {
+        let (l, _r) = a.process_raw(0, 0);
+        heard |= l != 0;
+    }
+    assert!(heard);
+
+    // Different seed, different pattern.
+    b.randomize_delay_ram(8);
+    assert_ne!(a.delay_ram(), b.delay_ram());
+}

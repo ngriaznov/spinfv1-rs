@@ -73,6 +73,11 @@ int32_t spinfv1_set_pot(SpinFv1 *handle, uint32_t pot, float value);
  * (enabled != 0; enabled by default). */
 int32_t spinfv1_set_delay_quantization(SpinFv1 *handle, int32_t enabled);
 
+/* Fill delay RAM with a deterministic pseudo-random pattern, like the
+ * uninitialized SRAM of a freshly powered chip. Programs that read
+ * never-written regions as a noise source need this after loading. */
+int32_t spinfv1_randomize_delay_ram(SpinFv1 *handle, uint32_t seed);
+
 /* Process one stereo frame (inputs nominally in -1..1). Real-time
  * safe. On error the outputs are written as silence. */
 int32_t spinfv1_process(SpinFv1 *handle, float in_l, float in_r,

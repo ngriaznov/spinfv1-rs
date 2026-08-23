@@ -104,6 +104,19 @@ impl Fv1 {
         self.rmp_lfo = [RampLfo::new(), RampLfo::new()];
     }
 
+    /// Fill delay RAM with a deterministic pseudo-random pattern, like the
+    /// uninitialized SRAM of a freshly powered chip. Some programs read
+    /// regions they never write and rely on that content as a noise
+    /// source; with zeroed RAM those programs are silent. The same seed
+    /// always produces the same pattern.
+    pub fn randomize_delay_ram(&mut self, seed: u32) {
+        let mut state = seed | 1;
+        for cell in self.delay.iter_mut() {
+            state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            *cell = ((state >> 8) as i32) << 8 >> 8;
+        }
+    }
+
     /// Set potentiometer `idx` (0..=2) to `value` in `[0.0, 1.0]`.
     ///
     /// The value is taken as given at full S.23 resolution: input
