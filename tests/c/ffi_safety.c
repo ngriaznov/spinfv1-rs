@@ -106,6 +106,7 @@ static int audio_thread_simulation(void) {
             CHECK(spinfv1_load_asm(h, ECHO) == SPINFV1_OK);
             CHECK(spinfv1_randomize_delay_ram(h, 0x12345u) == SPINFV1_OK);
             CHECK(spinfv1_randomize_registers(h, 0x12345u) == SPINFV1_OK);
+            CHECK(spinfv1_set_adc_noise(h, 1, 0x12345u) == SPINFV1_OK);
         }
     }
     CHECK(peak > 0.1 && peak < 1.01);

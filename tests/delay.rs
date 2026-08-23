@@ -245,3 +245,22 @@ fn randomize_registers_covers_general_purpose_only() {
         assert_eq!(chip.register(r), again.register(r));
     }
 }
+
+#[test]
+fn adc_noise_floor_is_deterministic_and_small() {
+    let program = spinfv1::assemble("rdax ADCL, 1.0\nwrax DACL, 0.0\n").unwrap();
+    let mut chip = spinfv1::Fv1::new();
+    chip.set_adc_noise(true, 42);
+    chip.load_program(&program);
+    let a: Vec<i32> = (0..256).map(|_| chip.process_raw(0, 0).0).collect();
+    assert!(a.iter().any(|&v| v != 0));
+    assert!(a.iter().all(|&v| v.abs() <= 128));
+
+    chip.reset();
+    let b: Vec<i32> = (0..256).map(|_| chip.process_raw(0, 0).0).collect();
+    assert_eq!(a, b);
+
+    chip.set_adc_noise(false, 42);
+    chip.reset();
+    assert!((0..256).all(|_| chip.process_raw(0, 0).0 == 0));
+}

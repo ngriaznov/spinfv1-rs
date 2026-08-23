@@ -60,6 +60,9 @@ pub struct Fv1 {
     rmp_lfo: [RampLfo; 2],
     pots: [i32; 3],
     quantize_delay_14bit: bool,
+    adc_noise: bool,
+    noise_seed: u32,
+    noise_state: u32,
 }
 
 impl Fv1 {
@@ -80,6 +83,9 @@ impl Fv1 {
             rmp_lfo: [RampLfo::new(), RampLfo::new()],
             pots: [0; 3],
             quantize_delay_14bit: true,
+            adc_noise: false,
+            noise_seed: 1,
+            noise_state: 1,
         }
     }
 
@@ -102,6 +108,7 @@ impl Fv1 {
         self.first_run = true;
         self.sin_lfo = [SinLfo::new(), SinLfo::new()];
         self.rmp_lfo = [RampLfo::new(), RampLfo::new()];
+        self.noise_state = self.noise_seed | 1;
     }
 
     /// Fill delay RAM with a deterministic pseudo-random pattern, like the
@@ -128,6 +135,18 @@ impl Fv1 {
             state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
             *reg = ((state >> 8) as i32) << 8 >> 8;
         }
+    }
+
+    /// Model the ADC noise floor: a deterministic dither of up to a few
+    /// hundred counts (about -96 dBFS) added to each input sample.
+    /// Hardware inputs always carry analog noise in the low bits; programs
+    /// that expand those bits as a noise source are silent against
+    /// digitally clean input without it. The pattern restarts from the
+    /// seed on every reset/program load.
+    pub fn set_adc_noise(&mut self, enabled: bool, seed: u32) {
+        self.adc_noise = enabled;
+        self.noise_seed = seed;
+        self.noise_state = seed | 1;
     }
 
     /// Set potentiometer `idx` (0..=2) to `value` in `[0.0, 1.0]`.
@@ -201,6 +220,19 @@ impl Fv1 {
     /// Process one stereo sample in raw S.23.
     #[allow(clippy::too_many_lines, reason = "one match arm per FV-1 instruction")]
     pub fn process_raw(&mut self, in_l: i32, in_r: i32) -> (i32, i32) {
+        let (in_l, in_r) = if self.adc_noise {
+            let mut next = || {
+                self.noise_state = self
+                    .noise_state
+                    .wrapping_mul(1_664_525)
+                    .wrapping_add(1_013_904_223);
+                ((self.noise_state >> 8) & 0xFF) as i32 - 128
+            };
+            let (nl, nr) = (next(), next());
+            (in_l.saturating_add(nl), in_r.saturating_add(nr))
+        } else {
+            (in_l, in_r)
+        };
         self.regs[usize::from(reg::ADCL)] = sat24(i64::from(in_l));
         self.regs[usize::from(reg::ADCR)] = sat24(i64::from(in_r));
         self.regs[usize::from(reg::POT0)] = self.pots[0];

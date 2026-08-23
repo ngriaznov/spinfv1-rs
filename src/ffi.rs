@@ -277,6 +277,28 @@ pub unsafe extern "C" fn spinfv1_randomize_registers(handle: *mut SpinFv1, seed:
     }
 }
 
+/// Model the ADC noise floor (`enabled` != 0): a deterministic dither of
+/// up to a few hundred counts added to each input sample. Programs that
+/// expand the input's low bits as a noise source need this against
+/// digitally clean hosts. Off by default.
+///
+/// # Safety
+///
+/// `handle` must be a live handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn spinfv1_set_adc_noise(
+    handle: *mut SpinFv1,
+    enabled: i32,
+    seed: u32,
+) -> i32 {
+    unsafe {
+        with_handle(handle, |h| {
+            h.engine.chip_mut().set_adc_noise(enabled != 0, seed);
+            SPINFV1_OK
+        })
+    }
+}
+
 /// Process one stereo frame (inputs nominally in -1..=1). Real-time
 /// safe. On error the outputs are written as silence.
 ///

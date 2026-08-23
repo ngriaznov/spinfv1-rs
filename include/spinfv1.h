@@ -84,6 +84,12 @@ int32_t spinfv1_randomize_delay_ram(SpinFv1 *handle, uint32_t seed);
  * need this after loading. */
 int32_t spinfv1_randomize_registers(SpinFv1 *handle, uint32_t seed);
 
+/* Model the ADC noise floor (enabled != 0): a deterministic dither of up
+ * to a few hundred counts added to each input sample. Programs that
+ * expand the input's low bits as a noise source need this against
+ * digitally clean hosts. Off by default. */
+int32_t spinfv1_set_adc_noise(SpinFv1 *handle, int32_t enabled, uint32_t seed);
+
 /* Process one stereo frame (inputs nominally in -1..1). Real-time
  * safe. On error the outputs are written as silence. */
 int32_t spinfv1_process(SpinFv1 *handle, float in_l, float in_r,
