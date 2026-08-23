@@ -251,7 +251,10 @@ pub unsafe extern "C" fn spinfv1_set_delay_quantization(handle: *mut SpinFv1, en
 ///
 /// `handle` must be a live handle.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn spinfv1_set_clear_delay_on_load(handle: *mut SpinFv1, enabled: i32) -> i32 {
+pub unsafe extern "C" fn spinfv1_set_clear_delay_on_load(
+    handle: *mut SpinFv1,
+    enabled: i32,
+) -> i32 {
     unsafe {
         with_handle(handle, |h| {
             h.engine.chip_mut().set_clear_delay_on_load(enabled != 0);
