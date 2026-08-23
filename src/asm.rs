@@ -550,17 +550,39 @@ fn tokenize(s: &str) -> Result<Vec<Token>, String> {
                 out.push(Token::RawNumber(parse_radix(&chars[start..i], 16)?));
             }
             c if c.is_ascii_digit() || c == '.' => {
-                let start = i;
+                let mut text = String::new();
                 let mut has_dot = false;
                 while i < chars.len()
                     && (chars[i].is_ascii_digit() || (chars[i] == '.' && !has_dot))
                 {
                     has_dot |= chars[i] == '.';
+                    text.push(chars[i]);
                     i += 1;
+                }
+                // SpinASM tolerates a stray space before the decimal point
+                // (`1 .0`); rejoin the fractional part.
+                if !has_dot {
+                    let mut j = i;
+                    while matches!(chars.get(j), Some(' ' | '\t')) {
+                        j += 1;
+                    }
+                    if j > i
+                        && chars.get(j) == Some(&'.')
+                        && chars.get(j + 1).is_some_and(char::is_ascii_digit)
+                    {
+                        has_dot = true;
+                        text.push('.');
+                        i = j + 1;
+                        while i < chars.len() && chars[i].is_ascii_digit() {
+                            text.push(chars[i]);
+                            i += 1;
+                        }
+                    }
                 }
                 // Exponent notation: `1e-3`, `1.5E2`.
                 let mut has_exp = false;
                 if matches!(chars.get(i), Some('e' | 'E')) {
+                    let exp_start = i;
                     let after_sign = if matches!(chars.get(i + 1), Some('+' | '-')) {
                         i + 2
                     } else {
@@ -572,9 +594,9 @@ fn tokenize(s: &str) -> Result<Vec<Token>, String> {
                         while i < chars.len() && chars[i].is_ascii_digit() {
                             i += 1;
                         }
+                        text.extend(chars[exp_start..i].iter());
                     }
                 }
-                let text: String = chars[start..i].iter().collect();
                 if has_dot || has_exp {
                     let v: f64 = text
                         .parse()
@@ -1150,9 +1172,11 @@ fn skp_target(
         [Token::Number(Num::Int(n))] | [Token::RawNumber(n)] => {
             Err(format!("SKP distance {n} out of range 0..=63"))
         }
-        [Token::Number(Num::Real(_))] => {
-            Err("SKP distance must be an integer, not a real number".to_string())
-        }
+        // SpinASM accepts a real literal here and truncates it.
+        [Token::Number(Num::Real(x))] => match *x as i64 {
+            n @ 0..=63 => Ok(n as u8),
+            n => Err(format!("SKP distance {n} out of range 0..=63")),
+        },
         // A non-label symbol (EQU constant) or expression is a count.
         _ => match int_value(tokens, symtab, "SKP distance")? {
             n @ 0..=63 => Ok(n as u8),

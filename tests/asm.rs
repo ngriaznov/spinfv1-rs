@@ -1163,3 +1163,26 @@ fn community_program_constructs_assemble_per_spinasm() {
         }
     );
 }
+
+#[test]
+fn spinasm_numeric_tolerances_from_effect_corpora() {
+    // Real literal as SKP distance (truncated) and a stray space before
+    // the decimal point in a coefficient; both accepted by SpinASM.
+    let tolerant = assemble(
+        "
+        skp neg, 1.0
+        rdax REG0, 1 .0
+        rdax REG1, 0.5
+        ",
+    )
+    .unwrap();
+    let strict = assemble(
+        "
+        skp neg, 1
+        rdax REG0, 1.0
+        rdax REG1, 0.5
+        ",
+    )
+    .unwrap();
+    assert_eq!(tolerant.instructions(), strict.instructions());
+}
