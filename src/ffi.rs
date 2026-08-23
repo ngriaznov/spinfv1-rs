@@ -241,10 +241,29 @@ pub unsafe extern "C" fn spinfv1_set_delay_quantization(handle: *mut SpinFv1, en
     }
 }
 
-/// Fill delay RAM with a deterministic pseudo-random pattern, like the
-/// uninitialized SRAM of a freshly powered chip. Programs that read
-/// never-written regions as a noise source need this; call it after
-/// loading such a program.
+/// Whether a program load also clears delay RAM (`enabled` != 0; the
+/// default). Disable to keep delay contents across program switches, so
+/// the previous program's tail carries over instead of cutting to
+/// silence — hosts that switch programs frequently sound far less
+/// abrupt this way.
+///
+/// # Safety
+///
+/// `handle` must be a live handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn spinfv1_set_clear_delay_on_load(handle: *mut SpinFv1, enabled: i32) -> i32 {
+    unsafe {
+        with_handle(handle, |h| {
+            h.engine.chip_mut().set_clear_delay_on_load(enabled != 0);
+            SPINFV1_OK
+        })
+    }
+}
+
+/// Fill delay RAM with a deterministic pseudo-random noise floor (about
+/// -60 dBFS), like the uninitialized SRAM of a freshly powered chip.
+/// Programs that read never-written regions as a noise source need
+/// this; call it after loading such a program.
 ///
 /// # Safety
 ///

@@ -73,9 +73,16 @@ int32_t spinfv1_set_pot(SpinFv1 *handle, uint32_t pot, float value);
  * (enabled != 0; enabled by default). */
 int32_t spinfv1_set_delay_quantization(SpinFv1 *handle, int32_t enabled);
 
-/* Fill delay RAM with a deterministic pseudo-random pattern, like the
- * uninitialized SRAM of a freshly powered chip. Programs that read
- * never-written regions as a noise source need this after loading. */
+/* Whether a program load also clears delay RAM (enabled != 0; the
+ * default). Disable to keep delay contents across program switches, so
+ * the previous program's tail carries over instead of cutting to
+ * silence. */
+int32_t spinfv1_set_clear_delay_on_load(SpinFv1 *handle, int32_t enabled);
+
+/* Fill delay RAM with a deterministic pseudo-random noise floor (about
+ * -60 dBFS), like the uninitialized SRAM of a freshly powered chip.
+ * Programs that read never-written regions as a noise source need this
+ * after loading. */
 int32_t spinfv1_randomize_delay_ram(SpinFv1 *handle, uint32_t seed);
 
 /* Fill the general-purpose registers (REG0..=REG31) with a deterministic

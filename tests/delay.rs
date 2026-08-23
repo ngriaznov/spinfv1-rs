@@ -232,6 +232,46 @@ fn randomize_delay_ram_is_deterministic_and_readable() {
 }
 
 #[test]
+fn load_can_keep_delay_ram_for_spillover() {
+    let write = spinfv1::assemble("ldax ADCL\nwra 100, 0.0\n").unwrap();
+    let read = spinfv1::assemble("rda 101, 1.0\nwrax DACL, 0.0\n").unwrap();
+
+    // Default: a load clears delay RAM, so the reader hears silence.
+    let mut chip = spinfv1::Fv1::new();
+    chip.load_program(&write);
+    for _ in 0..64 {
+        chip.process_raw(4_000_000, 0);
+    }
+    chip.load_program(&read);
+    assert!((0..64).all(|_| chip.process_raw(0, 0).0 == 0));
+
+    // With clearing disabled, the previous program's audio carries over.
+    let mut chip = spinfv1::Fv1::new();
+    chip.set_clear_delay_on_load(false);
+    chip.load_program(&write);
+    for _ in 0..64 {
+        chip.process_raw(4_000_000, 0);
+    }
+    chip.load_program(&read);
+    assert!((0..64).any(|_| chip.process_raw(0, 0).0 != 0));
+
+    // An explicit reset still clears everything.
+    chip.reset();
+    assert!(chip.delay_ram().iter().all(|&v| v == 0));
+}
+
+#[test]
+fn randomize_delay_ram_is_a_quiet_noise_floor() {
+    let mut chip = spinfv1::Fv1::new();
+    chip.randomize_delay_ram(7);
+    // About -60 dBFS: every cell small, but the low bits stay random.
+    assert!(chip.delay_ram().iter().all(|&v| v.abs() <= 1 << 13));
+    let ones = chip.delay_ram().iter().filter(|&&v| v & 1 != 0).count();
+    let frac = ones as f64 / chip.delay_ram().len() as f64;
+    assert!((0.4..0.6).contains(&frac), "low bit not random: {frac}");
+}
+
+#[test]
 fn randomize_registers_covers_general_purpose_only() {
     let mut chip = spinfv1::Fv1::new();
     chip.randomize_registers(3);

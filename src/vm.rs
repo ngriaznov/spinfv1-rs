@@ -60,6 +60,7 @@ pub struct Fv1 {
     rmp_lfo: [RampLfo; 2],
     pots: [i32; 3],
     quantize_delay_14bit: bool,
+    clear_delay_on_load: bool,
     adc_noise: bool,
     noise_seed: u32,
     noise_state: u32,
@@ -83,22 +84,41 @@ impl Fv1 {
             rmp_lfo: [RampLfo::new(), RampLfo::new()],
             pots: [0; 3],
             quantize_delay_14bit: true,
+            clear_delay_on_load: true,
             adc_noise: false,
             noise_seed: 1,
             noise_state: 1,
         }
     }
 
-    /// Load a program and reset all DSP state (registers, delay RAM, LFOs,
-    /// accumulator), as if the chip had just switched programs.
+    /// Load a program and reset DSP state (registers, LFOs, accumulator),
+    /// as if the chip had just switched programs. Delay RAM is cleared
+    /// too unless [`set_clear_delay_on_load`](Self::set_clear_delay_on_load)
+    /// disabled that.
     pub fn load_program(&mut self, program: &Program) {
         self.instructions = program.instructions();
-        self.reset();
+        if self.clear_delay_on_load {
+            self.delay.fill(0);
+        }
+        self.reset_registers_and_lfos();
+    }
+
+    /// Whether a program load also clears delay RAM (the default). Disable
+    /// to keep the previous program's delay contents across switches, so
+    /// tails carry over instead of cutting to silence — hosts that switch
+    /// programs frequently sound far less abrupt this way, and programs
+    /// that mine old RAM contents as a noise source keep material to read.
+    pub fn set_clear_delay_on_load(&mut self, enabled: bool) {
+        self.clear_delay_on_load = enabled;
     }
 
     /// Reset all DSP state without changing the loaded program.
     pub fn reset(&mut self) {
         self.delay.fill(0);
+        self.reset_registers_and_lfos();
+    }
+
+    fn reset_registers_and_lfos(&mut self) {
         self.cursor = 0;
         self.regs = [0; 64];
         self.acc = 0;
@@ -111,16 +131,19 @@ impl Fv1 {
         self.noise_state = self.noise_seed | 1;
     }
 
-    /// Fill delay RAM with a deterministic pseudo-random pattern, like the
-    /// uninitialized SRAM of a freshly powered chip. Some programs read
+    /// Fill delay RAM with a deterministic pseudo-random noise floor, like
+    /// the uninitialized SRAM of a freshly powered chip. Some programs read
     /// regions they never write and rely on that content as a noise
-    /// source; with zeroed RAM those programs are silent. The same seed
-    /// always produces the same pattern.
+    /// source; with zeroed RAM those programs are silent. The pattern is
+    /// quiet (about -60 dBFS): noise-mining programs only need random low
+    /// bits, while full-scale garbage rings painfully loud through any
+    /// feedback network that reads it. The same seed always produces the
+    /// same pattern.
     pub fn randomize_delay_ram(&mut self, seed: u32) {
         let mut state = seed | 1;
         for cell in self.delay.iter_mut() {
             state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-            *cell = ((state >> 8) as i32) << 8 >> 8;
+            *cell = ((state >> 8) as i32) << 8 >> 18;
         }
     }
 
