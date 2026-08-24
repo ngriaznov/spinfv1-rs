@@ -80,6 +80,23 @@ static int error_paths(void) {
     CHECK(spinfv1_load_asm(h, "garbage\n") == SPINFV1_ERR_PROGRAM);
     CHECK(spinfv1_process(h, 0.5f, 0.0f, &l, &r) == SPINFV1_OK);
 
+    /* Handle-free assembly: image round-trips through load_bank, error
+     * messages fit the caller's buffer, nulls are rejected. */
+    unsigned char image[512];
+    char err[8] = "full";
+    CHECK(spinfv1_assemble(ECHO, image, err, sizeof err) == SPINFV1_OK);
+    CHECK(err[0] == '\0');
+    CHECK(spinfv1_load_bank(h, image, sizeof image, 0) == SPINFV1_OK);
+    CHECK(spinfv1_assemble("garbage\n", image, err, sizeof err) ==
+          SPINFV1_ERR_PROGRAM);
+    CHECK(strlen(err) > 0 && strlen(err) < sizeof err);
+    CHECK(spinfv1_assemble("garbage\n", image, NULL, 0) ==
+          SPINFV1_ERR_PROGRAM);
+    CHECK(spinfv1_assemble(NULL, image, err, sizeof err) ==
+          SPINFV1_ERR_NULL);
+    CHECK(spinfv1_assemble(ECHO, NULL, err, sizeof err) ==
+          SPINFV1_ERR_NULL);
+
     spinfv1_destroy(h);
     return 0;
 }

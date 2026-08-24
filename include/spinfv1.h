@@ -61,6 +61,14 @@ int32_t spinfv1_load_bank(SpinFv1 *handle, const uint8_t *bytes, size_t len,
  * SPINFV1_ERR_PROGRAM the message is available via spinfv1_last_error. */
 int32_t spinfv1_load_asm(SpinFv1 *handle, const char *source);
 
+/* Assemble SpinASM source (NUL-terminated UTF-8) into the 512-byte
+ * big-endian EEPROM image spinfv1_load_bank accepts, without a handle;
+ * for build tools that precompile programs. out must point to 512
+ * writable bytes. On failure, when error is non-NULL and error_cap > 0
+ * the message is copied into error (NUL-terminated, truncated). */
+int32_t spinfv1_assemble(const char *source, uint8_t *out, char *error,
+                         size_t error_cap);
+
 /* Most recent load error message ("" if none). Valid until the next
  * load call on this handle or spinfv1_destroy. NULL only for a NULL
  * handle. */

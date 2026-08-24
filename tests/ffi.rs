@@ -7,9 +7,9 @@
 use std::ffi::{CStr, CString};
 
 use spinfv1::ffi::{
-    SPINFV1_ERR_NULL, SPINFV1_ERR_PROGRAM, SPINFV1_OK, spinfv1_create, spinfv1_destroy,
-    spinfv1_last_error, spinfv1_latency, spinfv1_load_asm, spinfv1_load_bank, spinfv1_native_rate,
-    spinfv1_process, spinfv1_process_block, spinfv1_reset, spinfv1_set_pot,
+    SPINFV1_ERR_NULL, SPINFV1_ERR_PROGRAM, SPINFV1_OK, spinfv1_assemble, spinfv1_create,
+    spinfv1_destroy, spinfv1_last_error, spinfv1_latency, spinfv1_load_asm, spinfv1_load_bank,
+    spinfv1_native_rate, spinfv1_process, spinfv1_process_block, spinfv1_reset, spinfv1_set_pot,
 };
 use spinfv1::{Fv1, assemble};
 
@@ -186,5 +186,40 @@ fn reset_clears_echo_tail() {
             assert_eq!(l, 0.0, "stale echo after reset at frame {n}");
         }
         spinfv1_destroy(h);
+    }
+}
+
+#[test]
+fn assemble_matches_the_library_assembler() {
+    let source = CString::new(ECHO).unwrap();
+    let expected = spinfv1::assemble(ECHO).unwrap().to_bytes();
+    let mut image = [0u8; 512];
+    let mut err = [0 as std::ffi::c_char; 64];
+    unsafe {
+        assert_eq!(
+            spinfv1_assemble(
+                source.as_ptr(),
+                image.as_mut_ptr(),
+                err.as_mut_ptr(),
+                err.len()
+            ),
+            SPINFV1_OK
+        );
+    }
+    assert_eq!(image, expected);
+    assert_eq!(err[0], 0);
+
+    let bad = CString::new("garbage\n").unwrap();
+    unsafe {
+        assert_eq!(
+            spinfv1_assemble(
+                bad.as_ptr(),
+                image.as_mut_ptr(),
+                err.as_mut_ptr(),
+                err.len()
+            ),
+            SPINFV1_ERR_PROGRAM
+        );
+        assert_ne!(err[0], 0);
     }
 }

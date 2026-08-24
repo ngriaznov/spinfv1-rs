@@ -193,6 +193,69 @@ pub unsafe extern "C" fn spinfv1_load_asm(handle: *mut SpinFv1, source: *const c
     }
 }
 
+/// Assemble SpinASM source (NUL-terminated UTF-8) into the 512-byte
+/// big-endian EEPROM image that `spinfv1_load_bank` accepts, without
+/// creating a handle. Intended for build tools that precompile
+/// programs. On failure, when `error` is non-null and `error_cap` > 0,
+/// the message is copied into `error` (NUL-terminated, truncated to
+/// fit).
+///
+/// # Safety
+///
+/// `source` must be a NUL-terminated string; `out` must point to 512
+/// writable bytes; `error` must be null or point to `error_cap`
+/// writable bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn spinfv1_assemble(
+    source: *const c_char,
+    out: *mut u8,
+    error: *mut c_char,
+    error_cap: usize,
+) -> i32 {
+    let write_error = |message: &str| {
+        if error.is_null() || error_cap == 0 {
+            return;
+        }
+        let bytes = message.as_bytes();
+        let take = bytes.len().min(error_cap - 1);
+        unsafe {
+            for (i, &b) in bytes[..take].iter().enumerate() {
+                *error.add(i) = if b == 0 { b' ' } else { b } as c_char;
+            }
+            *error.add(take) = 0;
+        }
+    };
+
+    if source.is_null() || out.is_null() {
+        write_error("null argument");
+        return SPINFV1_ERR_NULL;
+    }
+    let source = unsafe { CStr::from_ptr(source) };
+    let result = catch_unwind(|| {
+        let Ok(source) = source.to_str() else {
+            return Err("source is not valid UTF-8".to_string());
+        };
+        assemble(source)
+            .map(|p| p.to_bytes())
+            .map_err(|e| e.to_string())
+    });
+    match result {
+        Ok(Ok(bytes)) => {
+            unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), out, bytes.len()) };
+            write_error("");
+            SPINFV1_OK
+        }
+        Ok(Err(message)) => {
+            write_error(&message);
+            SPINFV1_ERR_PROGRAM
+        }
+        Err(_) => {
+            write_error("internal panic");
+            SPINFV1_ERR_PANIC
+        }
+    }
+}
+
 /// The most recent load error message (empty string if none). The
 /// pointer stays valid until the next load call on this handle or
 /// `spinfv1_destroy`; returns null only for a null handle.
