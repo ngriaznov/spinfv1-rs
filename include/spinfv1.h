@@ -87,6 +87,14 @@ int32_t spinfv1_set_delay_quantization(SpinFv1 *handle, int32_t enabled);
  * silence. */
 int32_t spinfv1_set_clear_delay_on_load(SpinFv1 *handle, int32_t enabled);
 
+/* Clock-mod the chip: run it at chip_rate Hz instead of the stock
+ * 32,768 Hz crystal, like swapping the crystal on hardware —
+ * underclocking stretches delays and darkens bandwidth, overclocking
+ * shortens and brightens. Chip state is preserved across the switch.
+ * Accepts 4,096..=262,144 Hz and requires a resampled handle
+ * (host_rate > 0 at create); spinfv1_latency changes. */
+int32_t spinfv1_set_chip_rate(SpinFv1 *handle, double chip_rate);
+
 /* Fill delay RAM with a deterministic pseudo-random noise floor (about
  * -60 dBFS), like the uninitialized SRAM of a freshly powered chip.
  * Programs that read never-written regions as a noise source need this

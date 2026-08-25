@@ -165,9 +165,31 @@ static int heap_block_buffers(void) {
     return 0;
 }
 
+static int chip_rate_paths(void) {
+    CHECK(spinfv1_set_chip_rate(NULL, 32768.0) == SPINFV1_ERR_NULL);
+
+    SpinFv1 *h = spinfv1_create(48000.0);
+    CHECK(h != NULL);
+    CHECK(spinfv1_set_chip_rate(h, 16384.0) == SPINFV1_OK);
+    CHECK(spinfv1_latency(h) > 0);
+    CHECK(spinfv1_set_chip_rate(h, 65536.0) == SPINFV1_OK);
+    CHECK(spinfv1_set_chip_rate(h, 32768.0) == SPINFV1_OK);
+    CHECK(spinfv1_set_chip_rate(h, 100.0) == SPINFV1_ERR_PROGRAM);
+    CHECK(spinfv1_set_chip_rate(h, 1e9) == SPINFV1_ERR_PROGRAM);
+    CHECK(strlen(spinfv1_last_error(h)) > 0);
+    spinfv1_destroy(h);
+
+    SpinFv1 *native = spinfv1_create(0.0);
+    CHECK(native != NULL);
+    CHECK(spinfv1_set_chip_rate(native, 16384.0) == SPINFV1_ERR_PROGRAM);
+    spinfv1_destroy(native);
+    return 0;
+}
+
 int main(void) {
     CHECK(fabs(spinfv1_native_rate() - 32768.0) < 1e-9);
     if (lifecycle_churn()) return 1;
+    if (chip_rate_paths()) return 1;
     if (error_paths()) return 1;
     if (audio_thread_simulation()) return 1;
     if (heap_block_buffers()) return 1;

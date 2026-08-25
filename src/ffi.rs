@@ -462,6 +462,44 @@ pub unsafe extern "C" fn spinfv1_reset(handle: *mut SpinFv1) -> i32 {
     }
 }
 
+/// Clock-mod the chip: run it at `chip_rate` Hz instead of the stock
+/// 32,768 Hz crystal, exactly like swapping the crystal on hardware —
+/// underclocking stretches delays and darkens the bandwidth,
+/// overclocking shortens and brightens. Chip state (delay RAM,
+/// registers, the loaded program) is preserved; the converter
+/// re-priming runs a few milliseconds of silence through the chip, and
+/// `spinfv1_latency` changes. Accepts 4,096..=262,144 Hz (1/8x to 8x)
+/// and requires a boundary-resampled handle (`host_rate` > 0 at
+/// create); otherwise returns `SPINFV1_ERR_PROGRAM` with the reason in
+/// `spinfv1_last_error`. In crystal-swap mode the caller already owns
+/// the clock: call `spinfv1_process` at the modded rate instead.
+///
+/// # Safety
+///
+/// `handle` must be null or a live handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn spinfv1_set_chip_rate(handle: *mut SpinFv1, chip_rate: f64) -> i32 {
+    unsafe {
+        with_handle(handle, |state| {
+            if !(4_096.0..=262_144.0).contains(&chip_rate) {
+                state.set_error("chip rate must be within 4,096..=262,144 Hz");
+                return SPINFV1_ERR_PROGRAM;
+            }
+            match &mut state.engine {
+                Engine::Hosted(hosted) => {
+                    hosted.set_chip_rate(chip_rate);
+                    SPINFV1_OK
+                }
+                Engine::Native(_) => {
+                    state
+                        .set_error("chip rate control requires a resampled handle (host_rate > 0)");
+                    SPINFV1_ERR_PROGRAM
+                }
+            }
+        })
+    }
+}
+
 /// Pipeline latency in host samples: the resampling delay in
 /// boundary-resampled mode, 0 in crystal-swap mode or for a null
 /// handle. Report it to the host for delay compensation.

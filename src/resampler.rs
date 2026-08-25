@@ -173,17 +173,30 @@ pub struct HostedFv1 {
     down: StreamResampler,
     up: StreamResampler,
     latency: usize,
+    host_rate: f64,
+    chip_rate: f64,
 }
 
 impl HostedFv1 {
     /// Wrap a chip for a host running at `host_rate` Hz.
     #[must_use]
     pub fn new(chip: Fv1, host_rate: f64) -> Self {
+        Self::with_chip_rate(chip, host_rate, CHIP_RATE)
+    }
+
+    /// Wrap a chip clocked at `chip_rate` Hz instead of the stock
+    /// crystal — the hardware "clock mod": underclocking stretches
+    /// delays and darkens the bandwidth, overclocking does the
+    /// opposite. Panics if either rate is not finite and positive.
+    #[must_use]
+    pub fn with_chip_rate(chip: Fv1, host_rate: f64, chip_rate: f64) -> Self {
         let mut hosted = Self {
             chip,
-            down: StreamResampler::new(host_rate, CHIP_RATE),
-            up: StreamResampler::new(CHIP_RATE, host_rate),
+            down: StreamResampler::new(host_rate, chip_rate),
+            up: StreamResampler::new(chip_rate, host_rate),
             latency: 0,
+            host_rate,
+            chip_rate,
         };
         // Prime with silence until output frames flow, so `process`
         // always has a frame ready; the count is the pipeline latency.
@@ -191,6 +204,28 @@ impl HostedFv1 {
             hosted.latency += 1;
         }
         hosted
+    }
+
+    /// Swap the crystal on a running chip: rebuilds the two converters
+    /// for the new `chip_rate` and re-primes them. Chip state — delay
+    /// RAM, registers, the loaded program — is untouched, so tails
+    /// carry across the switch (re-priming runs a few milliseconds of
+    /// silence through the chip, as on a real clock change). Panics if
+    /// `chip_rate` is not finite and positive.
+    pub fn set_chip_rate(&mut self, chip_rate: f64) {
+        self.down = StreamResampler::new(self.host_rate, chip_rate);
+        self.up = StreamResampler::new(chip_rate, self.host_rate);
+        self.chip_rate = chip_rate;
+        self.latency = 0;
+        while self.step((0.0, 0.0)).is_none() {
+            self.latency += 1;
+        }
+    }
+
+    /// The chip clock in Hz ([`CHIP_RATE`] unless modded).
+    #[must_use]
+    pub fn chip_rate(&self) -> f64 {
+        self.chip_rate
     }
 
     /// The wrapped chip (load programs, set pots, inspect state).
