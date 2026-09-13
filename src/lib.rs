@@ -57,6 +57,14 @@
 //! * `LOG`/`EXP` are computed in double precision and rounded to S.23,
 //!   using in-crate deterministic arithmetic — results are bit-identical
 //!   on every platform and in every build configuration.
+//! * `CHO RDAL` adds the LFO value to ACC instead of loading it. The
+//!   datasheet says "load", but community programs written and tested on
+//!   hardware rely on the sum: back-to-back `CHO RDAL` reads accumulate
+//!   two LFOs, and rate-servo idioms compute a ramp rate in ACC, add the
+//!   ramp's own value with `CHO RDAL, RMP0`, and write `RMP0_RATE` — a
+//!   load there would discard the computed rate and freeze the ramp at
+//!   rate zero. The usual `wrax reg,0` right before `CHO RDAL` makes
+//!   both semantics agree in the common case.
 //!
 //! ## `no_std`
 //!

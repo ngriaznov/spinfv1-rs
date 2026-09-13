@@ -383,9 +383,16 @@ impl Fv1 {
                     self.acc = sat24(mul_s23(acc, i64::from(coeff)) + (i64::from(d) << 8));
                 }
                 Instruction::ChoRdal { lfo, flags } => {
-                    // ACC is an architectural write, so it saturates to
-                    // the 24-bit rails like every other ALU result.
-                    self.acc = sat24(i64::from(match lfo {
+                    // The LFO value is ADDED to ACC, not loaded over it:
+                    // RDAL shares the RDA datapath. The datasheet's
+                    // "loads" holds only because the common idiom clears
+                    // ACC first (`wrax reg,0` / `wra addr,0` right
+                    // before). Programs that compute a ramp rate in ACC
+                    // and then `cho rdal,rmp0 / wrax rmp0_rate` depend on
+                    // the addition — with a load, the computed rate is
+                    // discarded and a rate-0 ramp servo deadlocks at
+                    // zero, freezing the modulation.
+                    self.acc = sat24(acc + i64::from(match lfo {
                         LfoSel::Sin0 => self.sin_lfo[0]
                             .value(self.lfo_reg(reg::SIN0_RANGE), flags.contains(ChoFlags::COS)),
                         LfoSel::Sin1 => self.sin_lfo[1]

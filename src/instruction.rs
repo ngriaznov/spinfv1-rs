@@ -382,7 +382,9 @@ pub enum Instruction {
         /// Offset, raw S.15 (16 bits).
         d: i16,
     },
-    /// `CHO RDAL, lfo` — load the raw LFO value into ACC.
+    /// `CHO RDAL, lfo` — add the raw LFO value to ACC (the datasheet
+    /// says "load", but the hardware sums like `CHO RDA`; the usual
+    /// `wrax reg,0` right before makes the two look identical).
     ChoRdal {
         /// LFO source.
         lfo: LfoSel,
