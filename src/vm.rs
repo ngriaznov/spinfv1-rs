@@ -392,14 +392,20 @@ impl Fv1 {
                     // the addition — with a load, the computed rate is
                     // discarded and a rate-0 ramp servo deadlocks at
                     // zero, freezing the modulation.
-                    self.acc = sat24(acc + i64::from(match lfo {
-                        LfoSel::Sin0 => self.sin_lfo[0]
-                            .value(self.lfo_reg(reg::SIN0_RANGE), flags.contains(ChoFlags::COS)),
-                        LfoSel::Sin1 => self.sin_lfo[1]
-                            .value(self.lfo_reg(reg::SIN1_RANGE), flags.contains(ChoFlags::COS)),
-                        LfoSel::Rmp0 => self.rmp_lfo[0].value(),
-                        LfoSel::Rmp1 => self.rmp_lfo[1].value(),
-                    }));
+                    self.acc = sat24(
+                        acc + i64::from(match lfo {
+                            LfoSel::Sin0 => self.sin_lfo[0].value(
+                                self.lfo_reg(reg::SIN0_RANGE),
+                                flags.contains(ChoFlags::COS),
+                            ),
+                            LfoSel::Sin1 => self.sin_lfo[1].value(
+                                self.lfo_reg(reg::SIN1_RANGE),
+                                flags.contains(ChoFlags::COS),
+                            ),
+                            LfoSel::Rmp0 => self.rmp_lfo[0].value(),
+                            LfoSel::Rmp1 => self.rmp_lfo[1].value(),
+                        }),
+                    );
                 }
                 Instruction::Raw(_) => {}
             }
