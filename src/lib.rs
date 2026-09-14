@@ -47,7 +47,11 @@
 //! * LFO phase/scaling follows Spin's own documentation (AN-0001, the
 //!   SpinASM user manual): SIN LFOs are magic-circle oscillators stepping
 //!   `rate / 2^17` radians per sample; RMP LFOs count a 22-bit phase down by
-//!   `rate / 16` per sample.
+//!   `rate / 16` per sample, the division truncating toward zero so the
+//!   dead zone `(-16, 16)` freq units is symmetric — a pot-servo that
+//!   drives `RMP0_RATE` toward a target above the top phase then parks at
+//!   the rail instead of creeping one unit per sample and wrapping the
+//!   read pointer through the whole window.
 //! * `WLDS`/`WLDR` write the LFO rate/range registers without resetting the
 //!   oscillator phase, so programs that run them every pass (instead of
 //!   guarding with `SKP RUN`) still modulate correctly; `JAM` resets a ramp.

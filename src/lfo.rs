@@ -123,8 +123,18 @@ impl RampLfo {
     /// Advance one sample. WLDR stores `freq << 8` in the rate register; the
     /// phase moves by `freq / 16` units, so the tap slides `freq / 16384`
     /// samples per sample (pitch ratio `1 + freq / 16384`).
+    ///
+    /// The division truncates toward zero, giving a symmetric dead zone:
+    /// rates below 16 freq units in either direction move nothing (hardware
+    /// measurements report rates in (-16, 16) as lost). An arithmetic shift
+    /// would instead floor tiny negative rates to -1 — and reverbs that
+    /// servo a pot into the rate (`cho rdal / rdax pot0,-0.5 /
+    /// wrax rmp0_rate`) would creep 1 unit per sample whenever the pot's
+    /// target sits above the top phase (pot at full = target 0.5, one count
+    /// past the 0x3FFFFF rail), wrapping the predelay pointer through the
+    /// whole window about once a second instead of parking at the rail.
     pub fn tick(&mut self, rate_reg: i32, range_reg: i32) {
-        let rate = (rate_reg >> 8) >> 4;
+        let rate = rate_reg / 4096;
         self.phase = (self.phase - rate) & Self::range(range_reg);
     }
 
