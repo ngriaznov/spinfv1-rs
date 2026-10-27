@@ -569,8 +569,8 @@ mod rt {
         unsafe { abort() }
     }
 
-    #[unsafe(no_mangle)]
-    pub extern "C" fn rust_eh_personality() {}
+    #[unsafe(export_name = "rust_eh_personality")]
+    extern "C" fn eh_personality() {}
 }
 
 #[cfg(test)]
