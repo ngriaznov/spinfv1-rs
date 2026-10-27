@@ -37,7 +37,7 @@ jobs:
       - name: C ABI safety battery (ASan/UBSan/LSan + valgrind)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq valgrind
-          ./tests/c/run.sh
+          sh ./tests/c/run.sh
       - name: Benchmarks (compile only)
         run: cargo bench --no-run
       - name: Docs
