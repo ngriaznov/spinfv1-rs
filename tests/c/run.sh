@@ -13,9 +13,18 @@ mkdir -p "$BUILD_DIR"
 echo "== building static library (release, ffi feature) =="
 cargo rustc --release --features ffi --crate-type staticlib
 
+if command -v nm >/dev/null 2>&1; then
+    echo "== checking undefined symbols (must be pure C89, no OS/std calls) =="
+    FORBIDDEN='clock_gettime|getentropy|os_unfair_lock|pthread_|dlopen|dlsym|mmap|mprotect|sigaltstack|writev|getenv|getcwd|sysconf'
+    if nm -u target/release/libspinfv1.a | grep -E "$FORBIDDEN"; then
+        echo "ERROR: libspinfv1.a references forbidden OS/std symbols above" >&2
+        exit 1
+    fi
+fi
+
 CC="${CC:-cc}"
 COMMON="-O1 -g -Wall -Wextra -Werror -I include tests/c/ffi_safety.c \
-        target/release/libspinfv1.a -lm -lpthread -ldl"
+        target/release/libspinfv1.a -lm"
 
 echo "== ASan + UBSan + LeakSanitizer =="
 # shellcheck disable=SC2086

@@ -4,14 +4,14 @@
  *
  *     cargo rustc --release --features ffi --crate-type staticlib
  *
- * then link target/release/libspinfv1.a (add -lm on some platforms;
- * on Windows link the usual Rust system libs or use the MSVC .lib).
+ * then link target/release/libspinfv1.a. The archive is built as
+ * no_std + alloc (using only ANSI C malloc/free/realloc/calloc and
+ * abort), so it links no Rust libstd, requires no OS-specific system
+ * calls, and runs on older targets such as macOS 10.9.
  *
  * Threading: a handle is not internally synchronized. Create/load on
  * the main thread; process/set_pot are allocation-free and real-time
- * safe from a single audio thread. All functions catch internal
- * panics and return SPINFV1_ERR_PANIC instead of unwinding into the
- * host.
+ * safe from a single audio thread.
  */
 #ifndef SPINFV1_H
 #define SPINFV1_H
@@ -30,7 +30,7 @@ enum {
     SPINFV1_OK = 0,
     SPINFV1_ERR_NULL = -1,    /* a required pointer was null */
     SPINFV1_ERR_PROGRAM = -2, /* program rejected; see spinfv1_last_error */
-    SPINFV1_ERR_PANIC = -3,   /* internal panic caught at the boundary */
+    SPINFV1_ERR_PANIC = -3,   /* reserved (kept for ABI compatibility) */
 };
 
 /* Create an emulator.

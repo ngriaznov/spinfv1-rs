@@ -17,6 +17,10 @@
 //! (host → chip) and interpolation (chip → host). Everything allocates
 //! up front; the per-sample path is allocation-free and real-time safe.
 
+use alloc::vec;
+use alloc::vec::Vec;
+
+use crate::math;
 use crate::vm::Fv1;
 
 /// The FV-1's nominal crystal rate in Hz.
@@ -31,7 +35,8 @@ fn bessel_i0(x: f64) -> f64 {
     let mut sum = 1.0;
     let mut term = 1.0;
     for k in 1..32 {
-        term *= (x / (2.0 * f64::from(k))).powi(2);
+        let u = x / (2.0 * f64::from(k));
+        term *= u * u;
         sum += term;
         if term < 1e-12 * sum {
             break;
@@ -89,10 +94,11 @@ impl StreamResampler {
                     2.0 * cutoff
                 } else {
                     let x = core::f64::consts::PI * t;
-                    (2.0 * cutoff * x).sin() / x
+                    math::sin(2.0 * cutoff * x) / x
                 };
                 let w = if t.abs() <= half {
-                    bessel_i0(KAISER_BETA * (1.0 - (t / half).powi(2)).max(0.0).sqrt())
+                    let u = t / half;
+                    bessel_i0(KAISER_BETA * math::sqrt((1.0 - u * u).max(0.0)))
                         / bessel_i0(KAISER_BETA)
                 } else {
                     0.0
@@ -124,14 +130,15 @@ impl StreamResampler {
     /// Produce the next output frame, or `None` until enough input has
     /// been pushed to center the kernel window.
     pub fn pull(&mut self) -> Option<(f32, f32)> {
-        let i0 = self.pos.floor() as i64 - (TAPS as i64 / 2 - 1);
+        let pos_floor = math::floor(self.pos);
+        let i0 = pos_floor as i64 - (TAPS as i64 / 2 - 1);
         let last_needed = i0 + TAPS as i64 - 1;
         if last_needed >= self.pushed as i64 {
             return None;
         }
-        let frac = self.pos - self.pos.floor();
+        let frac = self.pos - pos_floor;
         let x = frac * PHASES as f64;
-        let p = x.floor() as usize;
+        let p = math::floor(x) as usize;
         let blend = (x - p as f64) as f32;
         let row_a = &self.kernel[p * TAPS..(p + 1) * TAPS];
         let row_b = &self.kernel[(p + 1) * TAPS..(p + 2) * TAPS];
@@ -152,7 +159,7 @@ impl StreamResampler {
         self.pos += self.step;
 
         // Drop history the kernel can no longer reach.
-        let min_needed = (self.pos.floor() as i64 - (TAPS as i64 / 2 - 1)).max(0) as u64;
+        let min_needed = (math::floor(self.pos) as i64 - (TAPS as i64 / 2 - 1)).max(0) as u64;
         if min_needed > self.base {
             let drop = (min_needed - self.base) as usize;
             self.history.drain(..drop.min(self.history.len()));

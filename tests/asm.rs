@@ -3,10 +3,6 @@
 //! instruction/pseudo-op, directive semantics (`EQU`, `MEM`, labels), the
 //! coefficient shorthand rule, error cases (each pinned to its line number),
 //! and an audio end-to-end echo assembled straight from source text.
-//!
-//! The assembler is `std`-only (it needs `HashMap`/`String`), so this whole
-//! file is compiled out under `--no-default-features --features libm`.
-#![cfg(feature = "std")]
 
 use spinfv1::{
     AsmError, ChoFlags, Fv1, Instruction, LfoSel, Program, RampAmp, SkpCond, assemble, coeff, reg,

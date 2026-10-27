@@ -1,15 +1,14 @@
-//! Deterministic transcendental math for `LOG`/`EXP`.
+//! Deterministic transcendental and elementary math (`no_std`, no `libm`).
 //!
 //! The emulator promises bit-exact output, and that promise has to hold
 //! *across platforms*: golden hashes and committed reference WAVs are
 //! only meaningful if Linux/macOS/Windows and `std`/`no_std` builds all
 //! compute identical samples. Platform `libm`s disagree in the last ulp
-//! of `log2`/`exp2` (they are not required to be correctly rounded), so
-//! this module implements the three operations the VM needs from
-//! nothing but IEEE-754 `+ - * /` and integer bit manipulation — all of
-//! which are exactly specified — giving the same result everywhere,
-//! with ~1e-15 relative accuracy (the VM quantizes to S4.19/S.23, so
-//! the deterministic value is far inside the rounding step).
+//! of `log2`/`exp2`/`sin` (they are not required to be correctly
+//! rounded), so this module implements the operations the VM, assembler,
+//! and polyphase resampler need from nothing but IEEE-754 `+ - * /` and
+//! integer bit manipulation — all of which are exactly specified —
+//! giving the same result everywhere, with ~1e-15 relative accuracy.
 
 /// Round to the nearest integer, ties away from zero.
 ///
@@ -27,6 +26,60 @@ pub(crate) fn round(x: f64) -> f64 {
     } else {
         t
     }
+}
+
+/// Largest integer less than or equal to `x` (`floor`), exact for |x| < 2^52.
+#[cfg(any(feature = "resampler", test))]
+#[inline]
+#[must_use]
+pub(crate) fn floor(x: f64) -> f64 {
+    let t = x as i64 as f64;
+    if x < t { t - 1.0 } else { t }
+}
+
+/// Non-negative square root for finite `x >= 0`.
+///
+/// Seeds Newton-Raphson by halving the IEEE-754 biased exponent (within a
+/// factor of `sqrt(2)` of the root), then runs six Heron iterations to
+/// reach full 53-bit precision across the normal range.
+#[cfg(any(feature = "resampler", test))]
+#[inline]
+#[must_use]
+pub(crate) fn sqrt(x: f64) -> f64 {
+    debug_assert!(x >= 0.0 && x.is_finite());
+    if x <= 0.0 {
+        return 0.0;
+    }
+    let mut y = f64::from_bits((x.to_bits() >> 1) + (1023u64 << 51));
+    for _ in 0..6 {
+        y = 0.5 * (y + x / y);
+    }
+    y
+}
+
+/// Sine for finite `x` (used to build the polyphase sinc kernel at
+/// resampler construction).
+///
+/// Reduces `x` modulo `pi` into `[-pi/2, pi/2]` and evaluates the odd
+/// Taylor polynomial through `r^21 / 21!` (~1e-16 accuracy).
+#[cfg(any(feature = "resampler", test))]
+#[inline]
+#[must_use]
+pub(crate) fn sin(x: f64) -> f64 {
+    debug_assert!(x.is_finite());
+    const PI: f64 = core::f64::consts::PI;
+    let k = round(x / PI);
+    let r = x - k * PI;
+    let r2 = r * r;
+    let mut term = r;
+    let mut sum = r;
+    let mut n = 2.0;
+    for _ in 0..10 {
+        term *= -r2 / (n * (n + 1.0));
+        sum += term;
+        n += 2.0;
+    }
+    if (k as i64) & 1 != 0 { -sum } else { sum }
 }
 
 const LN_2: f64 = core::f64::consts::LN_2;
@@ -93,6 +146,37 @@ pub(crate) fn exp2(x: f64) -> f64 {
     sum * scale
 }
 
+/// Real power `base^exp` for constant-expression evaluation in the assembler.
+#[inline]
+#[must_use]
+pub(crate) fn powf(base: f64, exp: f64) -> f64 {
+    if exp == 0.0 || base == 1.0 {
+        return 1.0;
+    }
+    let exp_int = round(exp);
+    if exp == exp_int && exp_int.abs() <= 1024.0 {
+        let mut n = (exp_int as i64).unsigned_abs();
+        let mut b = base;
+        let mut acc = 1.0;
+        while n > 0 {
+            if n & 1 != 0 {
+                acc *= b;
+            }
+            b *= b;
+            n >>= 1;
+        }
+        return if exp_int < 0.0 { 1.0 / acc } else { acc };
+    }
+    if base <= 0.0 {
+        return if base == 0.0 && exp > 0.0 {
+            0.0
+        } else {
+            f64::NAN
+        };
+    }
+    exp2(exp * log2(base))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,6 +198,37 @@ mod tests {
             -8_388_608.5,
         ] {
             assert_eq!(round(x), x.round(), "round({x})");
+        }
+    }
+
+    #[test]
+    fn floor_matches_std() {
+        for x in [
+            0.0, -0.0, 0.1, 0.999, 1.0, -0.1, -0.999, -1.0, -123.456, 789.012,
+        ] {
+            assert_eq!(floor(x), x.floor(), "floor({x})");
+        }
+    }
+
+    #[test]
+    fn sqrt_matches_std_to_sub_ulp_precision() {
+        assert_eq!(sqrt(0.0), 0.0);
+        assert_eq!(sqrt(1.0), 1.0);
+        assert_eq!(sqrt(4.0), 2.0);
+        for i in 1..=2000u32 {
+            let x = f64::from(i) * 0.0137;
+            let err = (sqrt(x) - x.sqrt()).abs() / x.sqrt();
+            assert!(err < 1e-15, "sqrt({x}): {} vs {}", sqrt(x), x.sqrt());
+        }
+    }
+
+    #[test]
+    fn sin_matches_std_across_sinc_domain() {
+        assert_eq!(sin(0.0), 0.0);
+        for i in -2000i32..=2000 {
+            let x = f64::from(i) * 0.025;
+            let err = (sin(x) - x.sin()).abs();
+            assert!(err < 1e-14, "sin({x}): {} vs {}", sin(x), x.sin());
         }
     }
 

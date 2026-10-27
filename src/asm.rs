@@ -45,11 +45,15 @@
 //! fv1.load_program(&program);
 //! ```
 
+use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use core::fmt;
-use std::collections::{HashMap, HashSet};
 
 use crate::{
-    ChoFlags, DELAY_LEN, Instruction, LfoSel, PROGRAM_LEN, Program, RampAmp, SkpCond, coeff, reg,
+    ChoFlags, DELAY_LEN, Instruction, LfoSel, PROGRAM_LEN, Program, RampAmp, SkpCond, coeff, math,
+    reg,
 };
 
 /// An error produced while assembling SpinASM source.
@@ -99,7 +103,7 @@ impl fmt::Display for AsmError {
     }
 }
 
-impl std::error::Error for AsmError {}
+impl core::error::Error for AsmError {}
 
 /// Assemble SpinASM source text into a [`Program`].
 ///
@@ -113,7 +117,7 @@ pub fn assemble(source: &str) -> Result<Program, AsmError> {
     let mut symtab = predefined_symbols();
     // Names defined as `NAME:` labels, so `SKP`'s second operand can
     // tell a jump target from an `EQU` skip-count constant.
-    let mut labels: HashSet<String> = HashSet::new();
+    let mut labels: BTreeSet<String> = BTreeSet::new();
     let mut mem_end: i64 = 0;
     let mut pending: Vec<Pending> = Vec::new();
 
@@ -307,7 +311,7 @@ fn directive_name<'a>(
 }
 
 fn define_symbol(
-    symtab: &mut HashMap<String, Num>,
+    symtab: &mut BTreeMap<String, Num>,
     name: &str,
     value: Num,
     line: usize,
@@ -383,7 +387,7 @@ impl Num {
                 .checked_pow(b as u32)
                 .map(Self::Int)
                 .ok_or_else(|| "integer overflow in '**'".to_string()),
-            (a, b) => Ok(Self::Real(a.as_f64().powf(b.as_f64()))),
+            (a, b) => Ok(Self::Real(math::powf(a.as_f64(), b.as_f64()))),
         }
     }
 
@@ -650,7 +654,7 @@ fn parse_radix(digits: &[char], radix: u32) -> Result<i64, String> {
 // whitespace (`a ^ b`) it is XOR.
 // ---------------------------------------------------------------------
 
-fn eval(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<Num, String> {
+fn eval(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<Num, String> {
     if tokens.is_empty() {
         return Err("expected a value".to_string());
     }
@@ -663,13 +667,13 @@ fn eval(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<Num, String> 
 }
 
 /// A precedence level's evaluator function.
-type LevelFn = fn(&[Token], &mut usize, &HashMap<String, Num>) -> Result<Num, String>;
+type LevelFn = fn(&[Token], &mut usize, &BTreeMap<String, Num>) -> Result<Num, String>;
 
 /// Shared shape of the integer-only bitwise levels (`|`, `^`, `&`).
 fn eval_bitwise(
     tokens: &[Token],
     pos: &mut usize,
-    symtab: &HashMap<String, Num>,
+    symtab: &BTreeMap<String, Num>,
     op_token: &Token,
     op_name: char,
     apply: fn(i64, i64) -> i64,
@@ -693,7 +697,7 @@ fn eval_bitwise(
 fn eval_or(
     tokens: &[Token],
     pos: &mut usize,
-    symtab: &HashMap<String, Num>,
+    symtab: &BTreeMap<String, Num>,
 ) -> Result<Num, String> {
     eval_bitwise(
         tokens,
@@ -709,7 +713,7 @@ fn eval_or(
 fn eval_xor(
     tokens: &[Token],
     pos: &mut usize,
-    symtab: &HashMap<String, Num>,
+    symtab: &BTreeMap<String, Num>,
 ) -> Result<Num, String> {
     eval_bitwise(
         tokens,
@@ -725,7 +729,7 @@ fn eval_xor(
 fn eval_and(
     tokens: &[Token],
     pos: &mut usize,
-    symtab: &HashMap<String, Num>,
+    symtab: &BTreeMap<String, Num>,
 ) -> Result<Num, String> {
     eval_bitwise(
         tokens,
@@ -741,7 +745,7 @@ fn eval_and(
 fn eval_shift(
     tokens: &[Token],
     pos: &mut usize,
-    symtab: &HashMap<String, Num>,
+    symtab: &BTreeMap<String, Num>,
 ) -> Result<Num, String> {
     let mut acc = eval_sum(tokens, pos, symtab)?;
     loop {
@@ -765,7 +769,7 @@ fn eval_shift(
 fn eval_sum(
     tokens: &[Token],
     pos: &mut usize,
-    symtab: &HashMap<String, Num>,
+    symtab: &BTreeMap<String, Num>,
 ) -> Result<Num, String> {
     let mut v = eval_product(tokens, pos, symtab)?;
     loop {
@@ -784,7 +788,7 @@ fn eval_sum(
 fn eval_product(
     tokens: &[Token],
     pos: &mut usize,
-    symtab: &HashMap<String, Num>,
+    symtab: &BTreeMap<String, Num>,
 ) -> Result<Num, String> {
     let mut v = eval_power(tokens, pos, symtab)?;
     loop {
@@ -803,7 +807,7 @@ fn eval_product(
 fn eval_power(
     tokens: &[Token],
     pos: &mut usize,
-    symtab: &HashMap<String, Num>,
+    symtab: &BTreeMap<String, Num>,
 ) -> Result<Num, String> {
     let base = eval_unary(tokens, pos, symtab)?;
     if tokens.get(*pos) == Some(&Token::Pow) {
@@ -819,7 +823,7 @@ fn eval_power(
 fn eval_unary(
     tokens: &[Token],
     pos: &mut usize,
-    symtab: &HashMap<String, Num>,
+    symtab: &BTreeMap<String, Num>,
 ) -> Result<Num, String> {
     match tokens.get(*pos) {
         Some(Token::Minus) => {
@@ -870,7 +874,7 @@ fn split_commas(tokens: &[Token]) -> Vec<Vec<Token>> {
     let mut cur = Vec::new();
     for t in tokens {
         if *t == Token::Comma {
-            groups.push(std::mem::take(&mut cur));
+            groups.push(core::mem::take(&mut cur));
         } else {
             cur.push(t.clone());
         }
@@ -883,7 +887,7 @@ fn split_commas(tokens: &[Token]) -> Vec<Vec<Token>> {
 // Field parsers
 // ---------------------------------------------------------------------
 
-fn int_value(tokens: &[Token], symtab: &HashMap<String, Num>, what: &str) -> Result<i64, String> {
+fn int_value(tokens: &[Token], symtab: &BTreeMap<String, Num>, what: &str) -> Result<i64, String> {
     eval(tokens, symtab)?
         .as_int()
         .ok_or_else(|| format!("{what} must be an integer, not a real number"))
@@ -891,7 +895,7 @@ fn int_value(tokens: &[Token], symtab: &HashMap<String, Num>, what: &str) -> Res
 
 fn int_in_range(
     tokens: &[Token],
-    symtab: &HashMap<String, Num>,
+    symtab: &BTreeMap<String, Num>,
     lo: i64,
     hi: i64,
     what: &str,
@@ -904,15 +908,15 @@ fn int_in_range(
     }
 }
 
-fn addr_value(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<u16, String> {
+fn addr_value(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<u16, String> {
     int_in_range(tokens, symtab, 0, 32767, "address").map(|n| n as u16)
 }
 
-fn reg_value(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<u8, String> {
+fn reg_value(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<u8, String> {
     int_in_range(tokens, symtab, 0, 63, "register").map(|n| n as u8)
 }
 
-fn mask_value(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<u32, String> {
+fn mask_value(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<u32, String> {
     // SpinASM also accepts a real here, packed as its S.23 encoding
     // (`OR -0.5` is the mask 0xC00000).
     let n = match eval(tokens, symtab)? {
@@ -933,7 +937,7 @@ fn mask_value(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<u32, St
     }
 }
 
-fn raw_word(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<u32, String> {
+fn raw_word(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<u32, String> {
     int_in_range(tokens, symtab, 0, 0xFFFF_FFFF, "RAW word").map(|n| n as u32)
 }
 
@@ -951,7 +955,7 @@ fn quantize(
     name: &str,
     quant: fn(f64) -> i16,
 ) -> Result<i16, String> {
-    let raw = (x * scale).round();
+    let raw = math::round(x * scale);
     if (raw_min as f64..=raw_max as f64).contains(&raw) || x == shorthand {
         Ok(quant(x))
     } else {
@@ -963,7 +967,7 @@ fn quantize(
     }
 }
 
-fn coeff_value(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<f64, String> {
+fn coeff_value(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<f64, String> {
     Ok(eval(tokens, symtab)?.as_f64())
 }
 
@@ -985,7 +989,7 @@ fn raw_field(tokens: &[Token], bits: u32) -> Option<Result<i16, String>> {
     })
 }
 
-fn coeff_s1_14(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
+fn coeff_s1_14(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<i16, String> {
     if let Some(raw) = raw_field(tokens, 16) {
         return raw;
     }
@@ -1000,7 +1004,7 @@ fn coeff_s1_14(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, S
     )
 }
 
-fn coeff_s1_9(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
+fn coeff_s1_9(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<i16, String> {
     if let Some(raw) = raw_field(tokens, 11) {
         return raw;
     }
@@ -1015,7 +1019,7 @@ fn coeff_s1_9(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, St
     )
 }
 
-fn coeff_s_10(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
+fn coeff_s_10(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<i16, String> {
     if let Some(raw) = raw_field(tokens, 11) {
         return raw;
     }
@@ -1030,7 +1034,7 @@ fn coeff_s_10(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, St
     )
 }
 
-fn coeff_s_15(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
+fn coeff_s_15(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<i16, String> {
     if let Some(raw) = raw_field(tokens, 16) {
         return raw;
     }
@@ -1053,7 +1057,11 @@ enum LfoKind {
 
 /// The single-bit LFO selector used by `WLDS`/`WLDR`/`JAM`: `SIN0`/`SIN1`
 /// or `RMP0`/`RMP1` by name, or a bare `0`/`1`.
-fn lfo_bit(tokens: &[Token], symtab: &HashMap<String, Num>, kind: LfoKind) -> Result<bool, String> {
+fn lfo_bit(
+    tokens: &[Token],
+    symtab: &BTreeMap<String, Num>,
+    kind: LfoKind,
+) -> Result<bool, String> {
     if let [Token::Ident(name)] = tokens {
         match (kind, name.to_ascii_uppercase().as_str()) {
             (LfoKind::Sin, "SIN0") | (LfoKind::Rmp, "RMP0") => return Ok(false),
@@ -1074,7 +1082,7 @@ fn lfo_bit(tokens: &[Token], symtab: &HashMap<String, Num>, kind: LfoKind) -> Re
 
 /// The 2-bit LFO selector used by `CHO`: any of the four LFO names, or an
 /// integer `0..=3`.
-fn cho_lfo(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<LfoSel, String> {
+fn cho_lfo(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<LfoSel, String> {
     if let [Token::Ident(name)] = tokens {
         match name.to_ascii_uppercase().as_str() {
             "SIN0" => return Ok(LfoSel::Sin0),
@@ -1093,7 +1101,7 @@ fn cho_lfo(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<LfoSel, St
     }
 }
 
-fn cho_flags(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<ChoFlags, String> {
+fn cho_flags(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<ChoFlags, String> {
     // Spin's own program listings write an empty flags operand
     // (`cho rda, RMP0, , Delay+1`), meaning "no flags".
     if tokens.is_empty() {
@@ -1109,7 +1117,7 @@ fn cho_flags(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<ChoFlags
     }
 }
 
-fn skp_cond(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<SkpCond, String> {
+fn skp_cond(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<SkpCond, String> {
     let n = eval(tokens, symtab)?.as_int().ok_or_else(|| {
         "SKP condition must be an integer or combination of flag names".to_string()
     })?;
@@ -1129,8 +1137,8 @@ fn skp_cond(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<SkpCond, 
 /// take the label path.
 fn skp_target(
     tokens: &[Token],
-    symtab: &HashMap<String, Num>,
-    labels: &HashSet<String>,
+    symtab: &BTreeMap<String, Num>,
+    labels: &BTreeSet<String>,
     this_index: usize,
 ) -> Result<u8, String> {
     match tokens {
@@ -1172,10 +1180,10 @@ fn skp_target(
 
 /// `WLDR`'s frequency: an integer register value, or (SpinASM semantics)
 /// a real scaled by 32768 (`0.999` stores 32735).
-fn wldr_freq(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, String> {
+fn wldr_freq(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<i16, String> {
     let n = match eval(tokens, symtab)? {
         Num::Int(n) => n,
-        Num::Real(x) => (x * 32768.0).round() as i64,
+        Num::Real(x) => math::round(x * 32768.0) as i64,
     };
     if (-32768..=32767).contains(&n) {
         Ok(n as i16)
@@ -1184,7 +1192,7 @@ fn wldr_freq(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<i16, Str
     }
 }
 
-fn wldr_amp(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<RampAmp, String> {
+fn wldr_amp(tokens: &[Token], symtab: &BTreeMap<String, Num>) -> Result<RampAmp, String> {
     match int_value(tokens, symtab, "WLDR amplitude")? {
         // Raw 2-bit range codes, as SpinASM also accepts.
         0 => Ok(RampAmp::Amp4096),
@@ -1212,8 +1220,8 @@ fn wldr_amp(tokens: &[Token], symtab: &HashMap<String, Num>) -> Result<RampAmp, 
 fn parse_instruction(
     index: usize,
     p: &Pending,
-    symtab: &HashMap<String, Num>,
-    labels: &HashSet<String>,
+    symtab: &BTreeMap<String, Num>,
+    labels: &BTreeSet<String>,
 ) -> Result<Instruction, AsmError> {
     let err = |m: String| AsmError::at(p.line, &p.source_line, m);
     let groups = split_commas(&p.operands);
@@ -1233,82 +1241,82 @@ fn parse_instruction(
         "RDA" => {
             need(2)?;
             Ok(Instruction::Rda {
-                addr: addr_value(&groups[0], symtab).map_err(&err)?,
-                c: coeff_s1_9(&groups[1], symtab).map_err(&err)?,
+                addr: addr_value(&groups[0], symtab).map_err(err)?,
+                c: coeff_s1_9(&groups[1], symtab).map_err(err)?,
             })
         }
         "RMPA" => {
             need(1)?;
             Ok(Instruction::Rmpa {
-                c: coeff_s1_9(&groups[0], symtab).map_err(&err)?,
+                c: coeff_s1_9(&groups[0], symtab).map_err(err)?,
             })
         }
         "WRA" => {
             need(2)?;
             Ok(Instruction::Wra {
-                addr: addr_value(&groups[0], symtab).map_err(&err)?,
-                c: coeff_s1_9(&groups[1], symtab).map_err(&err)?,
+                addr: addr_value(&groups[0], symtab).map_err(err)?,
+                c: coeff_s1_9(&groups[1], symtab).map_err(err)?,
             })
         }
         "WRAP" => {
             need(2)?;
             Ok(Instruction::Wrap {
-                addr: addr_value(&groups[0], symtab).map_err(&err)?,
-                c: coeff_s1_9(&groups[1], symtab).map_err(&err)?,
+                addr: addr_value(&groups[0], symtab).map_err(err)?,
+                c: coeff_s1_9(&groups[1], symtab).map_err(err)?,
             })
         }
         "RDAX" => {
             need(2)?;
             Ok(Instruction::Rdax {
-                reg: reg_value(&groups[0], symtab).map_err(&err)?,
-                c: coeff_s1_14(&groups[1], symtab).map_err(&err)?,
+                reg: reg_value(&groups[0], symtab).map_err(err)?,
+                c: coeff_s1_14(&groups[1], symtab).map_err(err)?,
             })
         }
         "RDFX" => {
             need(2)?;
             Ok(Instruction::Rdfx {
-                reg: reg_value(&groups[0], symtab).map_err(&err)?,
-                c: coeff_s1_14(&groups[1], symtab).map_err(&err)?,
+                reg: reg_value(&groups[0], symtab).map_err(err)?,
+                c: coeff_s1_14(&groups[1], symtab).map_err(err)?,
             })
         }
         "WRAX" => {
             need(2)?;
             Ok(Instruction::Wrax {
-                reg: reg_value(&groups[0], symtab).map_err(&err)?,
-                c: coeff_s1_14(&groups[1], symtab).map_err(&err)?,
+                reg: reg_value(&groups[0], symtab).map_err(err)?,
+                c: coeff_s1_14(&groups[1], symtab).map_err(err)?,
             })
         }
         "WRHX" => {
             need(2)?;
             Ok(Instruction::Wrhx {
-                reg: reg_value(&groups[0], symtab).map_err(&err)?,
-                c: coeff_s1_14(&groups[1], symtab).map_err(&err)?,
+                reg: reg_value(&groups[0], symtab).map_err(err)?,
+                c: coeff_s1_14(&groups[1], symtab).map_err(err)?,
             })
         }
         "WRLX" => {
             need(2)?;
             Ok(Instruction::Wrlx {
-                reg: reg_value(&groups[0], symtab).map_err(&err)?,
-                c: coeff_s1_14(&groups[1], symtab).map_err(&err)?,
+                reg: reg_value(&groups[0], symtab).map_err(err)?,
+                c: coeff_s1_14(&groups[1], symtab).map_err(err)?,
             })
         }
         "MAXX" => {
             need(2)?;
             Ok(Instruction::Maxx {
-                reg: reg_value(&groups[0], symtab).map_err(&err)?,
-                c: coeff_s1_14(&groups[1], symtab).map_err(&err)?,
+                reg: reg_value(&groups[0], symtab).map_err(err)?,
+                c: coeff_s1_14(&groups[1], symtab).map_err(err)?,
             })
         }
         "MULX" => {
             need(1)?;
             Ok(Instruction::Mulx {
-                reg: reg_value(&groups[0], symtab).map_err(&err)?,
+                reg: reg_value(&groups[0], symtab).map_err(err)?,
             })
         }
         "LOG" => {
             need(2)?;
             Ok(Instruction::Log {
-                c: coeff_s1_14(&groups[0], symtab).map_err(&err)?,
+                c: coeff_s1_14(&groups[0], symtab).map_err(err)?,
                 // SpinASM quantizes LOG's D like SOF/EXP's: S.10, -1 to
                 // +0.999023 (the knowledge-base cheat sheet row; verified
                 // against SpinASM-validated assembler output, where
@@ -1318,46 +1326,46 @@ fn parse_instruction(
                 // so the entered value acts ×16 in log2 units — Spin's
                 // noise-expander idiom `LOG 1,0.94` / `EXP 1,0` (gain
                 // 2^15.04) depends on this.
-                d: coeff_s_10(&groups[1], symtab).map_err(&err)?,
+                d: coeff_s_10(&groups[1], symtab).map_err(err)?,
             })
         }
         "EXP" => {
             need(2)?;
             Ok(Instruction::Exp {
-                c: coeff_s1_14(&groups[0], symtab).map_err(&err)?,
-                d: coeff_s_10(&groups[1], symtab).map_err(&err)?,
+                c: coeff_s1_14(&groups[0], symtab).map_err(err)?,
+                d: coeff_s_10(&groups[1], symtab).map_err(err)?,
             })
         }
         "SOF" => {
             need(2)?;
             Ok(Instruction::Sof {
-                c: coeff_s1_14(&groups[0], symtab).map_err(&err)?,
-                d: coeff_s_10(&groups[1], symtab).map_err(&err)?,
+                c: coeff_s1_14(&groups[0], symtab).map_err(err)?,
+                d: coeff_s_10(&groups[1], symtab).map_err(err)?,
             })
         }
         "AND" => {
             need(1)?;
             Ok(Instruction::And {
-                mask: mask_value(&groups[0], symtab).map_err(&err)?,
+                mask: mask_value(&groups[0], symtab).map_err(err)?,
             })
         }
         "OR" => {
             need(1)?;
             Ok(Instruction::Or {
-                mask: mask_value(&groups[0], symtab).map_err(&err)?,
+                mask: mask_value(&groups[0], symtab).map_err(err)?,
             })
         }
         "XOR" => {
             need(1)?;
             Ok(Instruction::Xor {
-                mask: mask_value(&groups[0], symtab).map_err(&err)?,
+                mask: mask_value(&groups[0], symtab).map_err(err)?,
             })
         }
         "SKP" => {
             need(2)?;
             Ok(Instruction::Skp {
-                cond: skp_cond(&groups[0], symtab).map_err(&err)?,
-                n: skp_target(&groups[1], symtab, labels, index).map_err(&err)?,
+                cond: skp_cond(&groups[0], symtab).map_err(err)?,
+                n: skp_target(&groups[1], symtab, labels, index).map_err(err)?,
             })
         }
         // SpinASM's unconditional jump: `JMP target` = `SKP 0,target`.
@@ -1365,34 +1373,34 @@ fn parse_instruction(
             need(1)?;
             Ok(Instruction::Skp {
                 cond: SkpCond::NONE,
-                n: skp_target(&groups[0], symtab, labels, index).map_err(&err)?,
+                n: skp_target(&groups[0], symtab, labels, index).map_err(err)?,
             })
         }
         "WLDS" => {
             need(3)?;
             Ok(Instruction::Wlds {
-                lfo: lfo_bit(&groups[0], symtab, LfoKind::Sin).map_err(&err)?,
-                freq: int_in_range(&groups[1], symtab, 0, 511, "WLDS frequency").map_err(&err)?
+                lfo: lfo_bit(&groups[0], symtab, LfoKind::Sin).map_err(err)?,
+                freq: int_in_range(&groups[1], symtab, 0, 511, "WLDS frequency").map_err(err)?
                     as u16,
-                amp: int_in_range(&groups[2], symtab, 0, 32767, "WLDS amplitude").map_err(&err)?
+                amp: int_in_range(&groups[2], symtab, 0, 32767, "WLDS amplitude").map_err(err)?
                     as u16,
             })
         }
         "WLDR" => {
             need(3)?;
             Ok(Instruction::Wldr {
-                lfo: lfo_bit(&groups[0], symtab, LfoKind::Rmp).map_err(&err)?,
-                freq: wldr_freq(&groups[1], symtab).map_err(&err)?,
-                amp: wldr_amp(&groups[2], symtab).map_err(&err)?,
+                lfo: lfo_bit(&groups[0], symtab, LfoKind::Rmp).map_err(err)?,
+                freq: wldr_freq(&groups[1], symtab).map_err(err)?,
+                amp: wldr_amp(&groups[2], symtab).map_err(err)?,
             })
         }
         "JAM" => {
             need(1)?;
             Ok(Instruction::Jam {
-                lfo: lfo_bit(&groups[0], symtab, LfoKind::Rmp).map_err(&err)?,
+                lfo: lfo_bit(&groups[0], symtab, LfoKind::Rmp).map_err(err)?,
             })
         }
-        "CHO" => parse_cho(&groups, symtab).map_err(&err),
+        "CHO" => parse_cho(&groups, symtab).map_err(err),
         "NOP" => {
             need(0)?;
             Ok(Instruction::NOP)
@@ -1412,20 +1420,18 @@ fn parse_instruction(
         "LDAX" => {
             need(1)?;
             Ok(Instruction::ldax(
-                reg_value(&groups[0], symtab).map_err(&err)?,
+                reg_value(&groups[0], symtab).map_err(err)?,
             ))
         }
         "RAW" => {
             need(1)?;
-            Ok(Instruction::Raw(
-                raw_word(&groups[0], symtab).map_err(&err)?,
-            ))
+            Ok(Instruction::Raw(raw_word(&groups[0], symtab).map_err(err)?))
         }
         other => Err(err(format!("unknown mnemonic `{other}`"))),
     }
 }
 
-fn parse_cho(groups: &[Vec<Token>], symtab: &HashMap<String, Num>) -> Result<Instruction, String> {
+fn parse_cho(groups: &[Vec<Token>], symtab: &BTreeMap<String, Num>) -> Result<Instruction, String> {
     let Some([Token::Ident(sub)]) = groups.first().map(Vec::as_slice) else {
         return Err("CHO requires a subtype: RDA, SOF, or RDAL".to_string());
     };
@@ -1503,7 +1509,7 @@ fn parse_cho(groups: &[Vec<Token>], symtab: &HashMap<String, Num>) -> Result<Ins
 // Predefined symbol table
 // ---------------------------------------------------------------------
 
-fn predefined_symbols() -> HashMap<String, Num> {
+fn predefined_symbols() -> BTreeMap<String, Num> {
     let regs: &[(&str, u8)] = &[
         ("SIN0_RATE", reg::SIN0_RATE),
         ("SIN0_RANGE", reg::SIN0_RANGE),
@@ -1522,7 +1528,7 @@ fn predefined_symbols() -> HashMap<String, Num> {
         ("DACR", reg::DACR),
         ("ADDR_PTR", reg::ADDR_PTR),
     ];
-    let mut m: HashMap<String, Num> = regs
+    let mut m: BTreeMap<String, Num> = regs
         .iter()
         .map(|&(name, v)| (name.to_string(), Num::Int(i64::from(v))))
         .collect();
@@ -1557,8 +1563,9 @@ fn predefined_symbols() -> HashMap<String, Num> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
 
-    fn sym(pairs: &[(&str, i64)]) -> HashMap<String, Num> {
+    fn sym(pairs: &[(&str, i64)]) -> BTreeMap<String, Num> {
         pairs
             .iter()
             .map(|&(k, v)| (k.to_string(), Num::Int(v)))
@@ -1618,14 +1625,14 @@ mod tests {
     #[test]
     fn coeff_shorthand_maps_to_max_and_rejects_near_misses() {
         assert_eq!(
-            coeff_s1_14(&tokenize("2.0").unwrap(), &HashMap::new()),
+            coeff_s1_14(&tokenize("2.0").unwrap(), &BTreeMap::new()),
             Ok(32767)
         );
         assert_eq!(
-            coeff_s1_14(&tokenize("-2.0").unwrap(), &HashMap::new()),
+            coeff_s1_14(&tokenize("-2.0").unwrap(), &BTreeMap::new()),
             Ok(-32768)
         );
-        assert!(coeff_s1_14(&tokenize("2.5").unwrap(), &HashMap::new()).is_err());
-        assert!(coeff_s1_14(&tokenize("1.99999").unwrap(), &HashMap::new()).is_err());
+        assert!(coeff_s1_14(&tokenize("2.5").unwrap(), &BTreeMap::new()).is_err());
+        assert!(coeff_s1_14(&tokenize("1.99999").unwrap(), &BTreeMap::new()).is_err());
     }
 }

@@ -24,6 +24,8 @@ jobs:
         run: cargo build --no-default-features --features libm
       - name: Clippy (no_std + libm)
         run: cargo clippy --no-default-features --features libm --all-targets -- -D warnings
+      - name: Clippy (no_std + ffi)
+        run: cargo clippy --no-default-features --features ffi --lib -- -D warnings
       - name: Clippy (resampler + ffi)
         run: cargo clippy --features ffi --all-targets -- -D warnings
       - name: Tests

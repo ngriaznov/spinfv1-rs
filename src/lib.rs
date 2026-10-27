@@ -37,8 +37,8 @@
 //! The chip's native rate is 32,768 Hz ([`SAMPLE_RATE`]), but `process` is
 //! rate-agnostic. The opt-in `resampler` feature adds boundary resampling
 //! (`resampler::HostedFv1`) to run the chip at its authentic rate inside any
-//! host, and the `ffi` feature exposes both hosting modes behind a
-//! panic-safe C ABI (`include/spinfv1.h`) for C/C++ hosts.
+//! host, and the `ffi` feature exposes both hosting modes behind an
+//! OS-independent C ABI (`include/spinfv1.h`) for C/C++ hosts.
 //!
 //! ## Fidelity notes
 //!
@@ -72,25 +72,24 @@
 //!
 //! ## `no_std`
 //!
-//! The DSP core (`Fv1`, `Program`, `Instruction`, `fixed`) is `no_std`
-//! compatible; see the crate README for the feature flags that enable it.
-//! The built-in SpinASM assembler (`assemble`) needs heap-allocated strings
-//! and a hash map from `std` and is only available with the default `std`
-//! feature; its doc link is omitted here because this paragraph must also
-//! compile under `no_std`, where the item doesn't exist.
+//! Every module in the crate (`Fv1`, `Program`, `Instruction`, `fixed`,
+//! [`assemble`], `resampler`, and `ffi`) builds on `core` + `alloc` alone
+//! with no OS calls or platform `libm`. Release static libraries built with
+//! `--features ffi` omit `libstd` entirely (routing allocations to C
+//! `malloc`/`free` and panics to `abort`), so the archive links cleanly on
+//! older targets such as macOS 10.9.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(
+    any(
+        not(feature = "std"),
+        all(feature = "ffi", not(debug_assertions), not(test), not(doc))
+    ),
+    no_std
+)]
 #![warn(missing_docs)]
-
-#[cfg(not(any(feature = "std", feature = "libm")))]
-compile_error!(
-    "spinfv1: enable the default `std` feature, or build `no_std` with \
-     `--no-default-features --features libm`."
-);
 
 extern crate alloc;
 
-#[cfg(feature = "std")]
 pub mod asm;
 #[cfg(feature = "ffi")]
 pub mod ffi;
@@ -103,7 +102,6 @@ mod program;
 pub mod resampler;
 mod vm;
 
-#[cfg(feature = "std")]
 pub use asm::{AsmError, assemble};
 pub use fixed::coeff;
 pub use instruction::{ChoFlags, Instruction, LfoSel, RampAmp, SkpCond, reg};

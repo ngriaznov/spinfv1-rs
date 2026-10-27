@@ -27,9 +27,11 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             lib: libspinfv1.a
+            macosx_deployment_target: "11.0"
           - os: macos-latest
             target: x86_64-apple-darwin
             lib: libspinfv1.a
+            macosx_deployment_target: "10.9"
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             lib: spinfv1.lib
@@ -40,7 +42,9 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - name: Build static library
-        run: cargo rustc --release --features ffi --crate-type staticlib --target ${{ matrix.target }}
+        env:
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
+        run: cargo rustc --release --no-default-features --features ffi --crate-type staticlib --target ${{ matrix.target }}
       - name: Assemble SDK bundle
         shell: bash
         env:

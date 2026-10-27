@@ -52,25 +52,26 @@ host it at another rate, both officially grounded in chip behavior:
   rate").
 
 For C/C++ hosts the opt-in `ffi` feature exposes the
-same two modes behind a panic-safe C ABI (`include/spinfv1.h`): an opaque
-handle with create/destroy, bank or SpinASM program loading with error
-messages, pot control, per-sample and block processing, reset, and
+same two modes behind an OS-independent C ABI (`include/spinfv1.h`): an
+opaque handle with create/destroy, bank or SpinASM program loading with
+error messages, pot control, per-sample and block processing, reset, and
 latency reporting. Build the archive with
 `cargo rustc --release --features ffi --crate-type staticlib` and link
-`target/release/libspinfv1.a`; the header carries the threading and
-real-time-safety contract.
+`target/release/libspinfv1.a`; the archive omits `libstd` (routing
+allocations to C `malloc`/`free` and panics to `abort`), so it pulls in
+no OS-version-specific syscalls (`clock_gettime`, `getentropy`, etc.)
+and links cleanly on older targets such as macOS 10.9.
 
 The boundary's safety is tested at three levels: Rust ABI tests
 (lifecycle, null rejection, error messages, exact parity with the
-direct API, panic containment — a caught panic surfaces as an error
-code and leaves the handle usable), a header↔implementation
-consistency test (the exported symbol set and the header's
-declarations must match exactly), and a C-side hostile-host harness
-(`tests/c/run.sh`) that compiles against the real header and static
-library and runs create/destroy churn, bad programs, per-frame pot
-automation, mid-stream reprogramming, and heap-exact block buffers
-under AddressSanitizer + UBSan + LeakSanitizer, and again under
-valgrind.
+direct API), a header↔implementation consistency test (the exported
+symbol set and the header's declarations must match exactly), and a
+C-side hostile-host harness (`tests/c/run.sh`) that compiles against
+the real header and static library, verifies that the archive imports
+no OS/threading/unwind symbols, and runs create/destroy churn, bad
+programs, per-frame pot automation, mid-stream reprogramming, and
+heap-exact block buffers under AddressSanitizer + UBSan +
+LeakSanitizer, and again under valgrind.
 
 ## Usage
 
@@ -136,31 +137,22 @@ largest representable value. Errors ([`AsmError`]) carry the offending
 
 ## `no_std`
 
-The DSP core (`Fv1`, `Program`, `Instruction`, the `fixed` module) builds
-`no_std`, for embedding on bare-metal/RTOS targets that run the effect but
-have no operating system:
+Every module (`Fv1`, `Program`, `Instruction`, `fixed`, `assemble`,
+`resampler`, and `ffi`) builds `no_std` on `core` + `alloc` alone, for
+embedding on bare-metal/RTOS targets or linking into C/C++ hosts that
+target older OS releases:
 
 ```sh
-cargo build --no-default-features --features libm
+cargo build --no-default-features
 ```
 
-Two build configurations select the environment, not the math — the
-floating-point `log2`/`exp2`/`round` behind `LOG`/`EXP` are implemented
-in-crate from nothing but IEEE-754 arithmetic and integer bit
-manipulation, so every platform and configuration computes bit-identical
-results (no platform libm is involved anywhere):
-
-- `std` (default): enables the assembler, the `resampler`/`ffi`
-  features, and the file-based test suites.
-- `libm`: marker feature for `no_std` builds
-  (`--no-default-features --features libm`), exposing the VM and program
-  types for pre-assembled programs (`Program::from_words`,
-  `Program::from_bytes`, or `Instruction`s built by hand). No external
-  libm crate is used.
-
-Exactly one of the two must be enabled; enabling neither is a compile
-error. Both configurations still require a global allocator
-(`extern crate alloc`), for the 32K-word delay RAM.
+All transcendental and elementary math (`log2`, `exp2`, `sin`, `sqrt`,
+`round`, `floor`, `powf`) is implemented in-crate from IEEE-754
+arithmetic and integer bit manipulation, so every platform and
+configuration computes bit-identical results with no platform `libm`
+or OS calls involved. Both `std` and `no_std` configurations require a
+global allocator (`extern crate alloc`); in release `ffi` staticlib
+builds the crate provides one backed by C `malloc`/`free`.
 
 ## Testing
 

@@ -1,6 +1,6 @@
 [package]
 name = "spinfv1"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2024"
 rust-version = "1.85"
 license-file = "LICENSE"
@@ -18,20 +18,21 @@ features = ["ffi"]
 
 [features]
 default = ["std"]
-# Standard library support (required by the assembler and resampler).
-# LOG/EXP math is platform-deterministic pure arithmetic in every
-# configuration — no platform libm is involved.
+# Standard library support (kept for compatibility; every module —
+# including the assembler, resampler, and C ABI — builds on `core` +
+# `alloc` alone, with deterministic pure-arithmetic math and no
+# platform libm).
 std = []
 # Boundary resampling: run the chip at its native 32,768 Hz inside any
 # host rate (windowed-sinc polyphase converter + HostedFv1 wrapper).
-resampler = ["std"]
-# C ABI for non-Rust hosts: opaque handle, panic-safe
-# boundary. Build the archive with:
+resampler = []
+# C ABI for non-Rust hosts: opaque handle, OS-independent (`no_std` +
+# `alloc` backed by C `malloc`/`free`, so the static archive links no
+# `libstd` or OS-version-specific syscalls). Build the archive with:
 #   cargo rustc --release --features ffi --crate-type staticlib
-ffi = ["std", "resampler"]
+ffi = ["resampler"]
 # Marker feature for `no_std` builds (kept for compatibility):
-# build with `--no-default-features --features libm`. The math is the
-# same deterministic pure-arithmetic code as under `std`.
+# build with `--no-default-features` (or `--no-default-features --features libm`).
 libm = []
 
 [dependencies]
@@ -39,6 +40,10 @@ libm = []
 [[bench]]
 name = "throughput"
 harness = false
+
+[profile.release]
+panic = "abort"
+lto = true
 
 [profile.test]
 opt-level = 2

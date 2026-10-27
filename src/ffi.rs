@@ -11,14 +11,18 @@
 //! runs at whatever rate the host calls it) or a boundary-resampled
 //! chip pinned to the authentic 32,768 Hz (see [`crate::resampler`]).
 //!
-//! Every function is panic-proof: unwinds are caught at the boundary
-//! and surface as [`SPINFV1_ERR_PANIC`] instead of crossing into the
-//! host. Functions taking a handle are safe to call from the audio
-//! thread once the handle exists; creation and program loading
-//! allocate and belong on the main thread.
+//! The C boundary is completely OS-independent (`no_std` + `alloc`,
+//! backed by C `malloc`/`free` and `abort`): the static archive links
+//! no `libstd` and makes no OS-specific system calls, so it links and
+//! runs cleanly on older targets such as macOS 10.9. Functions taking
+//! a handle are safe to call from the audio thread once the handle
+//! exists; creation and program loading allocate and belong on the
+//! main thread.
 
-use std::ffi::{CStr, CString, c_char};
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use alloc::boxed::Box;
+use alloc::ffi::CString;
+use alloc::string::ToString;
+use core::ffi::{CStr, c_char};
 
 use crate::resampler::HostedFv1;
 use crate::{Fv1, Program, assemble};
@@ -29,7 +33,7 @@ pub const SPINFV1_OK: i32 = 0;
 pub const SPINFV1_ERR_NULL: i32 = -1;
 /// The program bytes or source were rejected; see `spinfv1_last_error`.
 pub const SPINFV1_ERR_PROGRAM: i32 = -2;
-/// An internal panic was caught at the FFI boundary.
+/// Reserved error code (kept for ABI compatibility).
 pub const SPINFV1_ERR_PANIC: i32 = -3;
 
 enum Engine {
@@ -84,12 +88,9 @@ pub extern "C" fn spinfv1_create(host_rate: f64) -> *mut SpinFv1 {
     let engine = if host_rate == 0.0 {
         Engine::Native(Fv1::new())
     } else if (1_000.0..=1_000_000.0).contains(&host_rate) {
-        match catch_unwind(|| HostedFv1::new(Fv1::new(), host_rate)) {
-            Ok(hosted) => Engine::Hosted(hosted),
-            Err(_) => return std::ptr::null_mut(),
-        }
+        Engine::Hosted(HostedFv1::new(Fv1::new(), host_rate))
     } else {
-        return std::ptr::null_mut();
+        return core::ptr::null_mut();
     };
     Box::into_raw(Box::new(SpinFv1 {
         engine,
@@ -114,7 +115,7 @@ unsafe fn with_handle(handle: *mut SpinFv1, f: impl FnOnce(&mut SpinFv1) -> i32)
     let Some(handle) = (unsafe { handle.as_mut() }) else {
         return SPINFV1_ERR_NULL;
     };
-    catch_unwind(AssertUnwindSafe(|| f(handle))).unwrap_or(SPINFV1_ERR_PANIC)
+    f(handle)
 }
 
 /// Load a program from raw bank bytes (the 512-byte big-endian EEPROM
@@ -136,7 +137,7 @@ pub unsafe extern "C" fn spinfv1_load_bank(
     if bytes.is_null() {
         return SPINFV1_ERR_NULL;
     }
-    let bytes = unsafe { std::slice::from_raw_parts(bytes, len) };
+    let bytes = unsafe { core::slice::from_raw_parts(bytes, len) };
     unsafe {
         with_handle(handle, |h| {
             let slot = (program as usize)
@@ -231,27 +232,20 @@ pub unsafe extern "C" fn spinfv1_assemble(
         return SPINFV1_ERR_NULL;
     }
     let source = unsafe { CStr::from_ptr(source) };
-    let result = catch_unwind(|| {
-        let Ok(source) = source.to_str() else {
-            return Err("source is not valid UTF-8".to_string());
-        };
-        assemble(source)
-            .map(|p| p.to_bytes())
-            .map_err(|e| e.to_string())
-    });
-    match result {
-        Ok(Ok(bytes)) => {
-            unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), out, bytes.len()) };
+    let Ok(source) = source.to_str() else {
+        write_error("source is not valid UTF-8");
+        return SPINFV1_ERR_PROGRAM;
+    };
+    match assemble(source) {
+        Ok(program) => {
+            let bytes = program.to_bytes();
+            unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), out, bytes.len()) };
             write_error("");
             SPINFV1_OK
         }
-        Ok(Err(message)) => {
-            write_error(&message);
+        Err(e) => {
+            write_error(&e.to_string());
             SPINFV1_ERR_PROGRAM
-        }
-        Err(_) => {
-            write_error("internal panic");
-            SPINFV1_ERR_PANIC
         }
     }
 }
@@ -267,7 +261,7 @@ pub unsafe extern "C" fn spinfv1_assemble(
 pub unsafe extern "C" fn spinfv1_last_error(handle: *const SpinFv1) -> *const c_char {
     match unsafe { handle.as_ref() } {
         Some(h) => h.last_error.as_ptr(),
-        None => std::ptr::null(),
+        None => core::ptr::null(),
     }
 }
 
@@ -524,20 +518,76 @@ pub extern "C" fn spinfv1_native_rate() -> f64 {
     crate::resampler::CHIP_RATE
 }
 
+#[cfg(any(not(feature = "std"), all(not(debug_assertions), not(test), not(doc))))]
+mod rt {
+    use core::alloc::{GlobalAlloc, Layout};
+
+    unsafe extern "C" {
+        fn malloc(size: usize) -> *mut u8;
+        fn calloc(nmemb: usize, size: usize) -> *mut u8;
+        fn realloc(ptr: *mut u8, size: usize) -> *mut u8;
+        fn free(ptr: *mut u8);
+        fn abort() -> !;
+    }
+
+    struct LibcAlloc;
+
+    const MAX_ALIGN: usize = 2 * core::mem::size_of::<usize>();
+
+    unsafe impl GlobalAlloc for LibcAlloc {
+        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+            if layout.align() > MAX_ALIGN {
+                return core::ptr::null_mut();
+            }
+            unsafe { malloc(layout.size().max(1)) }
+        }
+
+        unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+            if layout.align() > MAX_ALIGN {
+                return core::ptr::null_mut();
+            }
+            unsafe { calloc(1, layout.size().max(1)) }
+        }
+
+        unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
+            unsafe { free(ptr) }
+        }
+
+        unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+            if layout.align() > MAX_ALIGN {
+                return core::ptr::null_mut();
+            }
+            unsafe { realloc(ptr, new_size.max(1)) }
+        }
+    }
+
+    #[global_allocator]
+    static ALLOC: LibcAlloc = LibcAlloc;
+
+    #[panic_handler]
+    fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
+        unsafe { abort() }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn rust_eh_personality() {}
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// The panic wall itself: a panicking operation must surface as
-    /// [`SPINFV1_ERR_PANIC`] and leave the handle usable, never unwind
-    /// across the boundary.
     #[test]
-    fn with_handle_contains_panics_and_handle_survives() {
+    fn with_handle_runs_closure_and_handle_survives() {
         let handle = spinfv1_create(0.0);
         assert!(!handle.is_null());
-        let code = unsafe { with_handle(handle, |_| -> i32 { panic!("deliberate test panic") }) };
-        assert_eq!(code, SPINFV1_ERR_PANIC);
-        // The handle must still work after a contained panic.
+        let code = unsafe {
+            with_handle(handle, |h| {
+                h.set_error("deliberate test error");
+                SPINFV1_ERR_PROGRAM
+            })
+        };
+        assert_eq!(code, SPINFV1_ERR_PROGRAM);
         unsafe {
             let (mut l, mut r) = (1.0f32, 1.0f32);
             assert_eq!(
@@ -551,7 +601,7 @@ mod tests {
 
     #[test]
     fn with_handle_rejects_null_before_running() {
-        let code = unsafe { with_handle(std::ptr::null_mut(), |_| SPINFV1_OK) };
+        let code = unsafe { with_handle(core::ptr::null_mut(), |_| SPINFV1_OK) };
         assert_eq!(code, SPINFV1_ERR_NULL);
     }
 }
